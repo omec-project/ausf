@@ -42,5 +42,3 @@ RUN mkdir -p ausf/
 # Copy executable and default certs
 COPY --from=builder /go/src/ausf/bin/* ./ausf
 WORKDIR /free5gc/ausf
-# Exposed ports
-EXPOSE 29509
