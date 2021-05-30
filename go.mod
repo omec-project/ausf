@@ -9,6 +9,8 @@ require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.0 // indirect
 	github.com/free5gc/UeauCommon v1.0.0
 	github.com/free5gc/http2_util v1.0.0
+    github.com/fsnotify/fsnotify v1.4.7
+    github.com/spf13/viper v1.7.1
 	github.com/free5gc/http_wrapper v1.0.0
 	github.com/free5gc/logger_conf v1.0.0
 	github.com/free5gc/logger_util v1.0.0

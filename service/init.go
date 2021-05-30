@@ -20,6 +20,8 @@ import (
 	"github.com/free5gc/ausf/util"
 	"github.com/free5gc/http2_util"
 	"github.com/free5gc/logger_util"
+	"github.com/spf13/viper"
+	"github.com/fsnotify/fsnotify"
 	openApiLogger "github.com/free5gc/openapi/logger"
 	"github.com/free5gc/path_util"
 	pathUtilLogger "github.com/free5gc/path_util/logger"
@@ -79,7 +81,26 @@ func (ausf *AUSF) Initialize(c *cli.Context) error {
 		return err
 	}
 
+	viper.SetConfigName("ausfcfg.conf")
+	viper.SetConfigType("yaml")
+	viper.AddConfigPath("/etc/config")
+	err := viper.ReadInConfig() // Find and read the config file
+	if err != nil { // Handle errors reading the config file
+		return err
+	}
 	return nil
+}
+
+func (ausf *AUSF) WatchConfig() {
+	viper.WatchConfig()
+	viper.OnConfigChange(func(e fsnotify.Event) {
+		fmt.Println("Config file changed:", e.Name)
+		if err := factory.UpdateAusfConfig("/etc/config/ausfcfg.conf"); err != nil {
+			logger.CfgLog.Errorf("error in loading updated configuration")
+		} else {
+			logger.CfgLog.Infof("successfully updated configuration")
+		}
+	})
 }
 
 func (ausf *AUSF) setLogLevel() {
