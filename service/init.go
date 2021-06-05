@@ -83,7 +83,7 @@ func (ausf *AUSF) Initialize(c *cli.Context) error {
 
 	viper.SetConfigName("ausfcfg.conf")
 	viper.SetConfigType("yaml")
-	viper.AddConfigPath("/etc/config")
+	viper.AddConfigPath("/free5gc/config")
 	err := viper.ReadInConfig() // Find and read the config file
 	if err != nil { // Handle errors reading the config file
 		return err
