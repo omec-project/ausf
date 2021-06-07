@@ -95,7 +95,7 @@ func (ausf *AUSF) WatchConfig() {
 	viper.WatchConfig()
 	viper.OnConfigChange(func(e fsnotify.Event) {
 		fmt.Println("Config file changed:", e.Name)
-		if err := factory.UpdateAusfConfig("/free5gc/config/ausfcfg.conf"); err != nil {
+		if err := factory.UpdateAusfConfig(e.Name + "/ausfcfg.conf"); err != nil {
 			logger.CfgLog.Errorf("error in loading updated configuration")
 		} else {
 			logger.CfgLog.Infof("successfully updated configuration")
