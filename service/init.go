@@ -26,8 +26,11 @@ import (
 	"github.com/free5gc/http2_util"
 	"github.com/free5gc/logger_util"
 	openApiLogger "github.com/free5gc/openapi/logger"
+	"github.com/free5gc/openapi/models"
 	"github.com/free5gc/path_util"
 	pathUtilLogger "github.com/free5gc/path_util/logger"
+	"github.com/omec-project/config5g/proto/client"
+	protos "github.com/omec-project/config5g/proto/sdcoreConfig"
 )
 
 type AUSF struct{}
@@ -58,6 +61,12 @@ func init() {
 	initLog = logger.InitLog
 }
 
+var ConfigPodTrigger chan bool
+
+func init() {
+	ConfigPodTrigger = make(chan bool)
+}
+
 func (*AUSF) GetCliCmd() (flags []cli.Flag) {
 	return ausfCLi
 }
@@ -84,6 +93,17 @@ func (ausf *AUSF) Initialize(c *cli.Context) error {
 		return err
 	}
 
+	roc := os.Getenv("MANAGED_BY_CONFIG_POD")
+	if roc == "true" {
+		initLog.Infoln("MANAGED_BY_CONFIG_POD is true")
+		commChannel := client.ConfigWatcher()
+		go ausf.updateConfig(commChannel)
+	} else {
+		go func() {
+			initLog.Infoln("Use helm chart config ")
+			ConfigPodTrigger <- true
+		}()
+	}
 	return nil
 }
 
@@ -156,6 +176,60 @@ func (ausf *AUSF) FilterCli(c *cli.Context) (args []string) {
 	return args
 }
 
+func (ausf *AUSF) updateConfig(commChannel chan *protos.NetworkSliceResponse) bool {
+	var minConfig bool
+	context := ausf_context.GetSelf()
+	for rsp := range commChannel {
+		logger.GrpcLog.Infoln("Received updateConfig in the ausf app : ", rsp)
+		for _, ns := range rsp.NetworkSlice {
+			logger.GrpcLog.Infoln("Network Slice Name ", ns.Name)
+			if ns.Site != nil {
+				temp := models.PlmnId{}
+				var found bool = false
+				logger.GrpcLog.Infoln("Network Slice has site name present ")
+				site := ns.Site
+				logger.GrpcLog.Infoln("Site name ", site.SiteName)
+				if site.Plmn != nil {
+					temp.Mcc = site.Plmn.Mcc
+					temp.Mnc = site.Plmn.Mnc
+					logger.GrpcLog.Infoln("Plmn mcc ", site.Plmn.Mcc)
+					for _, item := range context.PlmnList {
+						if item.Mcc == temp.Mcc && item.Mnc == temp.Mnc {
+							found = true
+							break
+						}
+					}
+					if found == false {
+						context.PlmnList = append(context.PlmnList, temp)
+						logger.GrpcLog.Infoln("Plmn added in the context", context.PlmnList)
+					}
+				} else {
+					logger.GrpcLog.Infoln("Plmn not present in the message ")
+				}
+			}
+		}
+		if minConfig == false {
+			// first slice Created
+			if len(context.PlmnList) > 0 {
+				minConfig = true
+				ConfigPodTrigger <- true
+				logger.GrpcLog.Infoln("Send config trigger to main routine first time config")
+			}
+		} else {
+			// all slices deleted
+			if len(context.PlmnList) == 0 {
+				minConfig = false
+				ConfigPodTrigger <- false
+				logger.GrpcLog.Infoln("Send config trigger to main routine config deleted")
+			} else {
+				ConfigPodTrigger <- true
+				logger.GrpcLog.Infoln("Send config trigger to main routine config updated")
+			}
+		}
+	}
+	return true
+}
+
 func (ausf *AUSF) Start() {
 	initLog.Infoln("Server started")
 
@@ -165,14 +239,7 @@ func (ausf *AUSF) Start() {
 	ausf_context.Init()
 	self := ausf_context.GetSelf()
 	// Register to NRF
-	profile, err := consumer.BuildNFInstance(self)
-	if err != nil {
-		initLog.Error("Build AUSF Profile Error")
-	}
-	_, self.NfId, err = consumer.SendRegisterNFInstance(self.NrfUri, self.NfId, profile)
-	if err != nil {
-		initLog.Errorf("AUSF register to NRF Error[%s]", err.Error())
-	}
+	go ausf.registerNF()
 
 	ausfLogPath := util.AusfLogPath
 
@@ -266,4 +333,20 @@ func (ausf *AUSF) Terminate() {
 	}
 
 	logger.InitLog.Infof("AUSF terminated")
+}
+
+func (ausf *AUSF) registerNF() {
+	for msg := range ConfigPodTrigger {
+		initLog.Infof("Minimum configuration from config pod available %v", msg)
+		self := ausf_context.GetSelf()
+		profile, err := consumer.BuildNFInstance(self)
+		if err != nil {
+			initLog.Error("Build AUSF Profile Error")
+		}
+		_, self.NfId, err = consumer.SendRegisterNFInstance(self.NrfUri, self.NfId, profile)
+		if err != nil {
+			initLog.Errorf("AUSF register to NRF Error[%s]", err.Error())
+		}
+
+	}
 }
