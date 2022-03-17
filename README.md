@@ -1,11 +1,3 @@
-<!--
-SPDX-FileCopyrightText: 2021 Open Networking Foundation <info@opennetworking.org>
-Copyright 2019 free5GC.org
-
-SPDX-License-Identifier: Apache-2.0
-
--->
-
 # ausf
 
 AUSF is an important service function in the 5G Core network. It provides the basic authentication
