@@ -18,20 +18,19 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 
-	"github.com/free5gc/ausf/consumer"
-	ausf_context "github.com/free5gc/ausf/context"
-	"github.com/free5gc/ausf/factory"
-	"github.com/free5gc/ausf/logger"
-	"github.com/free5gc/ausf/ueauthentication"
-	"github.com/free5gc/ausf/util"
-	"github.com/free5gc/http2_util"
-	"github.com/free5gc/logger_util"
-	openApiLogger "github.com/free5gc/openapi/logger"
-	"github.com/free5gc/openapi/models"
-	"github.com/free5gc/path_util"
-	pathUtilLogger "github.com/free5gc/path_util/logger"
+	"github.com/omec-project/ausf/consumer"
+	ausf_context "github.com/omec-project/ausf/context"
+	"github.com/omec-project/ausf/factory"
+	"github.com/omec-project/ausf/logger"
+	"github.com/omec-project/ausf/ueauthentication"
+	"github.com/omec-project/ausf/util"
 	"github.com/omec-project/config5g/proto/client"
 	protos "github.com/omec-project/config5g/proto/sdcoreConfig"
+	"github.com/omec-project/http2_util"
+	"github.com/omec-project/logger_util"
+	"github.com/omec-project/openapi/models"
+	"github.com/omec-project/path_util"
+	pathUtilLogger "github.com/omec-project/path_util/logger"
 )
 
 type AUSF struct{}
@@ -147,21 +146,6 @@ func (ausf *AUSF) setLogLevel() {
 		pathUtilLogger.SetReportCaller(factory.AusfConfig.Logger.PathUtil.ReportCaller)
 	}
 
-	if factory.AusfConfig.Logger.OpenApi != nil {
-		if factory.AusfConfig.Logger.OpenApi.DebugLevel != "" {
-			if level, err := logrus.ParseLevel(factory.AusfConfig.Logger.OpenApi.DebugLevel); err != nil {
-				openApiLogger.OpenApiLog.Warnf("OpenAPI Log level [%s] is invalid, set to [info] level",
-					factory.AusfConfig.Logger.OpenApi.DebugLevel)
-				openApiLogger.SetLogLevel(logrus.InfoLevel)
-			} else {
-				openApiLogger.SetLogLevel(level)
-			}
-		} else {
-			openApiLogger.OpenApiLog.Warnln("OpenAPI Log level not set. Default set to [info] level")
-			openApiLogger.SetLogLevel(logrus.InfoLevel)
-		}
-		openApiLogger.SetReportCaller(factory.AusfConfig.Logger.OpenApi.ReportCaller)
-	}
 }
 
 func (ausf *AUSF) FilterCli(c *cli.Context) (args []string) {

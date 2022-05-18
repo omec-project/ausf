@@ -20,11 +20,11 @@ import (
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 
-	"github.com/free5gc/UeauCommon"
-	ausf_context "github.com/free5gc/ausf/context"
-	"github.com/free5gc/ausf/logger"
-	"github.com/free5gc/http_wrapper"
-	"github.com/free5gc/openapi/models"
+	"github.com/omec-project/UeauCommon"
+	ausf_context "github.com/omec-project/ausf/context"
+	"github.com/omec-project/ausf/logger"
+	"github.com/omec-project/http_wrapper"
+	"github.com/omec-project/openapi/models"
 )
 
 func HandleEapAuthComfirmRequest(request *http_wrapper.Request) *http_wrapper.Response {

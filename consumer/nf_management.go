@@ -12,11 +12,11 @@ import (
 	"strings"
 	"time"
 
-	ausf_context "github.com/free5gc/ausf/context"
-	"github.com/free5gc/ausf/logger"
-	"github.com/free5gc/openapi"
-	"github.com/free5gc/openapi/Nnrf_NFManagement"
-	"github.com/free5gc/openapi/models"
+	ausf_context "github.com/omec-project/ausf/context"
+	"github.com/omec-project/ausf/logger"
+	"github.com/omec-project/openapi"
+	"github.com/omec-project/openapi/Nnrf_NFManagement"
+	"github.com/omec-project/openapi/models"
 )
 
 func BuildNFInstance(ausfContext *ausf_context.AUSFContext) (profile models.NfProfile, err error) {
