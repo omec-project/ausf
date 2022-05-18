@@ -19,11 +19,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/free5gc/ausf/logger"
-	"github.com/free5gc/ausf/producer"
-	"github.com/free5gc/http_wrapper"
-	"github.com/free5gc/openapi"
-	"github.com/free5gc/openapi/models"
+	"github.com/omec-project/ausf/logger"
+	"github.com/omec-project/ausf/producer"
+	"github.com/omec-project/http_wrapper"
+	"github.com/omec-project/openapi"
+	"github.com/omec-project/openapi/models"
 )
 
 // HTTPEapAuthMethod -
