@@ -13,10 +13,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/free5gc/ausf/factory"
-	"github.com/free5gc/ausf/logger"
-	"github.com/free5gc/openapi/models"
-	"github.com/free5gc/path_util"
+	"github.com/omec-project/ausf/factory"
+	"github.com/omec-project/ausf/logger"
+	"github.com/omec-project/openapi/models"
+	"github.com/omec-project/path_util"
 )
 
 func TestInit() {

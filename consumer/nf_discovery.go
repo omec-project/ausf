@@ -10,9 +10,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/free5gc/ausf/logger"
-	"github.com/free5gc/openapi/Nnrf_NFDiscovery"
-	"github.com/free5gc/openapi/models"
+	"github.com/omec-project/ausf/logger"
+	"github.com/omec-project/openapi/Nnrf_NFDiscovery"
+	"github.com/omec-project/openapi/models"
 )
 
 func SendSearchNFInstances(nrfUri string, targetNfType, requestNfType models.NfType,
