@@ -8,7 +8,7 @@ require (
 	github.com/bronze1man/radius v0.0.0-20190516032554-afd8baec892d
 	github.com/gin-gonic/gin v1.7.0
 	github.com/google/gopacket v1.1.19
-	github.com/google/uuid v1.1.2
+	github.com/google/uuid v1.4.0
 	github.com/omec-project/UeauCommon v1.1.0
 	github.com/omec-project/config5g v1.2.0
 	github.com/omec-project/http2_util v1.1.0
