@@ -16,7 +16,7 @@ require (
 	github.com/omec-project/logger_util v1.1.0
 	github.com/omec-project/openapi v1.1.0
 	github.com/omec-project/path_util v1.1.0
-	github.com/sirupsen/logrus v1.8.1
+	github.com/sirupsen/logrus v1.9.3
 	github.com/urfave/cli v1.22.14
 	gopkg.in/yaml.v2 v2.4.0
 )
