@@ -352,7 +352,7 @@ func (ausf *AUSF) BuildAndSendRegisterNFInstance() (models.NfProfile, error) {
 	self := context.GetSelf()
 	profile, err := consumer.BuildNFInstance(self)
 	if err != nil {
-		initLog.Error("Build AUSF Profile Error: %v", err)
+		initLog.Errorf("Build AUSF Profile Error: %v", err)
 		return profile, err
 	}
 	initLog.Infof("Pcf Profile Registering to NRF: %v", profile)
@@ -361,7 +361,7 @@ func (ausf *AUSF) BuildAndSendRegisterNFInstance() (models.NfProfile, error) {
 	return profile, err
 }
 
-//UpdateNF is the callback function, this is called when keepalivetimer elapsed
+// UpdateNF is the callback function, this is called when keepalivetimer elapsed
 func (ausf *AUSF) UpdateNF() {
 	KeepAliveTimerMutex.Lock()
 	defer KeepAliveTimerMutex.Unlock()
