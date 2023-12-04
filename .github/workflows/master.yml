@@ -17,8 +17,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Unit tests
-        run: go test ./...
-
       - name: Build
         run: go build
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unit tests
+        run: go test ./...
