@@ -141,7 +141,8 @@ func EapEncodeAttribute(attributeType string, data string) (string, error) {
 }
 
 // func eapAkaPrimePrf(ikPrime string, ckPrime string, identity string) (K_encr string, K_aut string, K_re string,
-//    MSK string, EMSK string) {
+//
+//	MSK string, EMSK string) {
 func eapAkaPrimePrf(ikPrime string, ckPrime string, identity string) (string, string, string, string, string) {
 	keyAp := ikPrime + ckPrime
 
@@ -161,7 +162,7 @@ func eapAkaPrimePrf(ikPrime string, ckPrime string, identity string) (string, st
 		// Create a new HMAC by defining the hash type and the key (as byte array)
 		h := hmac.New(sha256.New, key)
 
-		hexNum := string(i + 1)
+		hexNum := fmt.Sprint(i + 1)
 		ap := append(sBase, hexNum...)
 		s := append(prev, ap...)
 
