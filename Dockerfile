@@ -18,7 +18,7 @@ COPY . $GOPATH/src/ausf
 RUN cd $GOPATH/src/ausf \
     && make all
 
-FROM alpine:3.18 as ausf
+FROM alpine:3.19 as ausf
 
 LABEL description="ONF open source 5G Core Network" \
     version="Stage 3"
