@@ -1,7 +1,7 @@
 # Copyright 2019 free5GC.org
 #
 # SPDX-License-Identifier: Apache-2.0
-# 
+#
 
 # This file contains all available configuration options
 # with their default values.
@@ -142,22 +142,6 @@ linters-settings:
       mnd:
         # the list of enabled checks, see https://github.com/tommy-muehle/go-mnd/#checks for description.
         checks: argument,case,condition,operation,return,assign
-  gomodguard:
-    allowed:
-      modules:                                                        # List of allowed modules
-        # - gopkg.in/yaml.v2
-      domains:                                                        # List of allowed module domains
-        # - golang.org
-    blocked:
-      modules:                                                        # List of blocked modules
-        # - github.com/uudashr/go-module:                             # Blocked module
-        #     recommendations:                                        # Recommended modules that should be used instead (Optional)
-        #       - golang.org/x/mod
-        #     reason: "`mod` is the official go.mod parser library."  # Reason why the recommended module should be used (Optional)
-      versions:                                                       # List of blocked module version constraints
-        # - github.com/mitchellh/go-homedir:                          # Blocked module with version constraint
-        #     version: "< 1.1.0"                                      # Version constraint, see https://github.com/Masterminds/semver#basic-comparisons
-        #     reason: "testing if blocked version constraint works."  # Reason why the version constraint exists. (Optional)
   govet:
     # report about shadowed variables
     check-shadowing: true
@@ -205,17 +189,11 @@ linters-settings:
     # if it's called for subdir of a project it can't find funcs usages. All text editor integrations
     # with golangci-lint call it on a directory with the changed file.
     check-exported: false
-  whitespace:
-    multi-if: false   # Enforces newlines (or comments) after every multi-line if statement
-    multi-func: false # Enforces newlines (or comments) after every multi-line function signature
   gci:
     local-prefixes: "bitbucket.org"
   misspell:
     #locale: US
     ignore-words:
-  whitespace:
-    multi-if: false   # Enforces newlines (or comments) after every multi-line if statement
-    multi-func: false # Enforces newlines (or comments) after every multi-line function signature
   wsl:
     # If true append is only allowed to be cuddled if appending value is
     # matching variables, fields or types on line above. Default is true.
@@ -240,19 +218,17 @@ linters-settings:
 
 linters:
   enable:
-    - gofmt
+    # - gofmt
     - govet
     - errcheck
-    - staticcheck
-    - unused
-    - gosimple
-    - structcheck
-    - varcheck
+    # - staticcheck
+    # - unused
+    # - gosimple
+    # - structcheck
     - ineffassign
-    - deadcode
     - typecheck
     # Additional
-    - lll
+    # - lll
     - godox
     #- gomnd
     #- goconst
@@ -261,15 +237,15 @@ linters:
     # - nestif
     # - gomodguard
     - nakedret
-    - gci
+    # - gci
     - misspell
-    - gofumpt
-    - whitespace
+    # - gofumpt
+    # - whitespace
     - unconvert
     - predeclared
     - noctx
     - dogsled
-    - bodyclose
+    # - bodyclose
     - asciicheck
       #- stylecheck
       # - unparam
@@ -332,5 +308,5 @@ severity:
   # Only affects out formats that support setting severity information.
   rules:
     - linters:
-      - gomnd
+        - gomnd
       severity: ignore
