@@ -40,8 +40,7 @@ type AUSF struct{}
 type (
 	// Config information.
 	Config struct {
-		ausfcfg        string
-		heartBeatTimer string
+		ausfcfg string
 	}
 )
 
