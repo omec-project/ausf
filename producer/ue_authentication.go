@@ -14,7 +14,6 @@ import (
 	"math/rand"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/bronze1man/radius"
 	"github.com/google/gopacket"
@@ -222,7 +221,6 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 
 		var eapPkt radius.EapPacket
 		var randIdentifier int
-		rand.Seed(time.Now().Unix())
 
 		eapPkt.Code = radius.EapCode(1)
 		randIdentifier = rand.Intn(256)
