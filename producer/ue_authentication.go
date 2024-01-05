@@ -7,6 +7,7 @@ package producer
 
 import (
 	"context"
+	"math/big"
 
 	"crypto/rand"
 	"crypto/sha256"
@@ -29,12 +30,12 @@ import (
 
 // Generates a random int between 0 and 255
 func GenerateRandomNumber() (uint8, error) {
-	randBytes := make([]byte, 1)
-	_, err := rand.Read(randBytes)
+	max := big.NewInt(256)
+	randomNumber, err := rand.Int(rand.Reader, max)
 	if err != nil {
-		return 0, fmt.Errorf("error while generating random number: %s", err.Error())
+		return 0, err
 	}
-	return randBytes[0], nil
+	return uint8(randomNumber.Int64()), nil
 }
 
 func HandleEapAuthComfirmRequest(request *http_wrapper.Request) *http_wrapper.Response {
