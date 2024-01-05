@@ -7,14 +7,15 @@ package producer
 
 import (
 	"context"
+	"math/big"
+
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
-	"math/rand"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/bronze1man/radius"
 	"github.com/google/gopacket"
@@ -26,6 +27,16 @@ import (
 	"github.com/omec-project/http_wrapper"
 	"github.com/omec-project/openapi/models"
 )
+
+// Generates a random int between 0 and 255
+func GenerateRandomNumber() (uint8, error) {
+	max := big.NewInt(256)
+	randomNumber, err := rand.Int(rand.Reader, max)
+	if err != nil {
+		return 0, err
+	}
+	return uint8(randomNumber.Int64()), nil
+}
 
 func HandleEapAuthComfirmRequest(request *http_wrapper.Request) *http_wrapper.Response {
 	logger.Auth5gAkaComfirmLog.Infof("EapAuthComfirmRequest")
@@ -221,12 +232,12 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 		ausfUeContext.Kseaf = hex.EncodeToString(Kseaf)
 
 		var eapPkt radius.EapPacket
-		var randIdentifier int
-		rand.Seed(time.Now().Unix())
-
+		randIdentifier, err := GenerateRandomNumber()
+		if err != nil {
+			logger.Auth5gAkaComfirmLog.Warnf("Generate random number failed: %+v", err)
+		}
+		eapPkt.Identifier = randIdentifier
 		eapPkt.Code = radius.EapCode(1)
-		randIdentifier = rand.Intn(256)
-		eapPkt.Identifier = uint8(randIdentifier)
 		eapPkt.Type = radius.EapType(50) // according to RFC5448 6.1
 		var atRand, atAutn, atKdf, atKdfInput, atMAC string
 		if atRandTmp, err := EapEncodeAttribute("AT_RAND", RAND); err != nil {
