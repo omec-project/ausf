@@ -18,5 +18,4 @@ func TestGenerateRandomNumber(t *testing.T) {
 	}
 
 	fmt.Printf("Random number: %d\n", value)
-
 }

@@ -152,7 +152,6 @@ func (ausf *AUSF) setLogLevel() {
 		}
 		pathUtilLogger.SetReportCaller(factory.AusfConfig.Logger.PathUtil.ReportCaller)
 	}
-
 }
 
 func (ausf *AUSF) FilterCli(c *cli.Context) (args []string) {
@@ -191,7 +190,7 @@ func (ausf *AUSF) updateConfig(commChannel chan *protos.NetworkSliceResponse) bo
 							break
 						}
 					}
-					if found == false {
+					if !found {
 						context.PlmnList = append(context.PlmnList, temp)
 						logger.GrpcLog.Infoln("Plmn added in the context", context.PlmnList)
 					}
@@ -200,7 +199,7 @@ func (ausf *AUSF) updateConfig(commChannel chan *protos.NetworkSliceResponse) bo
 				}
 			}
 		}
-		if minConfig == false {
+		if !minConfig {
 			// first slice Created
 			if len(context.PlmnList) > 0 {
 				minConfig = true
@@ -423,6 +422,5 @@ func (ausf *AUSF) registerNF() {
 			ausf.StartKeepAliveTimer(prof)
 			logger.CfgLog.Infof("Sent Register NF Instance with updated profile")
 		}
-
 	}
 }

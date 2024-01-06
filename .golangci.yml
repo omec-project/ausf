@@ -226,24 +226,22 @@ linters:
     - errcheck
     - staticcheck
     - unused
-    # - gosimple
-    # - structcheck
+    - gosimple
     - ineffassign
     - typecheck
     # Additional
     # - lll
     - godox
     #- gomnd
-    #- goconst
+    - goconst
     # - gocognit
-    # - maligned
     # - nestif
-    # - gomodguard
+    - gomodguard
     - nakedret
     # - gci
     - misspell
     # - gofumpt
-    # - whitespace
+    - whitespace
     - unconvert
     - predeclared
     - noctx
