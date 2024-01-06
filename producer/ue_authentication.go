@@ -28,6 +28,11 @@ import (
 	"github.com/omec-project/openapi/models"
 )
 
+const UPSTREAM_SERVER_ERROR = "UPSTREAM_SERVER_ERROR"
+const USER_NOT_FOUND_ERROR = "USER_NOT_FOUND"
+const SERVING_NETWORK_NOT_AUTHORIZED_ERROR = "SERVING_NETWORK_NOT_AUTHORIZED"
+const AV_GENERATION_PROBLEM_ERROR = "AV_GENERATION_PROBLEM"
+
 // Generates a random int between 0 and 255
 func GenerateRandomNumber() (uint8, error) {
 	max := big.NewInt(256)
@@ -110,7 +115,7 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 	servingNetworkAuthorized := ausf_context.IsServingNetworkAuthorized(snName)
 	if !servingNetworkAuthorized {
 		var problemDetails models.ProblemDetails
-		problemDetails.Cause = "SERVING_NETWORK_NOT_AUTHORIZED"
+		problemDetails.Cause = SERVING_NETWORK_NOT_AUTHORIZED_ERROR
 		problemDetails.Status = http.StatusForbidden
 		logger.UeAuthPostLog.Infoln("403 forbidden: serving network NOT AUTHORIZED")
 		return nil, "", &problemDetails
@@ -140,9 +145,9 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 		logger.UeAuthPostLog.Infoln(err.Error())
 		var problemDetails models.ProblemDetails
 		if authInfoResult.AuthenticationVector == nil {
-			problemDetails.Cause = "AV_GENERATION_PROBLEM"
+			problemDetails.Cause = AV_GENERATION_PROBLEM_ERROR
 		} else {
-			problemDetails.Cause = "UPSTREAM_SERVER_ERROR"
+			problemDetails.Cause = UPSTREAM_SERVER_ERROR
 		}
 		problemDetails.Status = http.StatusInternalServerError
 		return nil, "", &problemDetails
@@ -310,7 +315,7 @@ func Auth5gAkaComfirmRequestProcedure(updateConfirmationData models.Confirmation
 		logger.Auth5gAkaComfirmLog.Infof("supiSuciPair does not exist, confirmation failed (queried by %s)\n",
 			ConfirmationDataResponseID)
 		var problemDetails models.ProblemDetails
-		problemDetails.Cause = "USER_NOT_FOUND"
+		problemDetails.Cause = USER_NOT_FOUND_ERROR
 		problemDetails.Status = http.StatusBadRequest
 		return nil, &problemDetails
 	}
@@ -319,7 +324,7 @@ func Auth5gAkaComfirmRequestProcedure(updateConfirmationData models.Confirmation
 	if !ausf_context.CheckIfAusfUeContextExists(currentSupi) {
 		logger.Auth5gAkaComfirmLog.Infof("SUPI does not exist, confirmation failed (queried by %s)\n", currentSupi)
 		var problemDetails models.ProblemDetails
-		problemDetails.Cause = "USER_NOT_FOUND"
+		problemDetails.Cause = USER_NOT_FOUND_ERROR
 		problemDetails.Status = http.StatusBadRequest
 		return nil, &problemDetails
 	}
@@ -347,7 +352,7 @@ func Auth5gAkaComfirmRequestProcedure(updateConfirmationData models.Confirmation
 		logger.Auth5gAkaComfirmLog.Infoln(sendErr.Error())
 		var problemDetails models.ProblemDetails
 		problemDetails.Status = http.StatusInternalServerError
-		problemDetails.Cause = "UPSTREAM_SERVER_ERROR"
+		problemDetails.Cause = UPSTREAM_SERVER_ERROR
 
 		return nil, &problemDetails
 	}
@@ -364,7 +369,7 @@ func EapAuthComfirmRequestProcedure(updateEapSession models.EapSession, eapSessi
 	if !ausf_context.CheckIfSuciSupiPairExists(eapSessionID) {
 		logger.Auth5gAkaComfirmLog.Infoln("supiSuciPair does not exist, confirmation failed")
 		var problemDetails models.ProblemDetails
-		problemDetails.Cause = "USER_NOT_FOUND"
+		problemDetails.Cause = USER_NOT_FOUND_ERROR
 		return nil, &problemDetails
 	}
 
@@ -372,7 +377,7 @@ func EapAuthComfirmRequestProcedure(updateEapSession models.EapSession, eapSessi
 	if !ausf_context.CheckIfAusfUeContextExists(currentSupi) {
 		logger.Auth5gAkaComfirmLog.Infoln("SUPI does not exist, confirmation failed")
 		var problemDetails models.ProblemDetails
-		problemDetails.Cause = "USER_NOT_FOUND"
+		problemDetails.Cause = USER_NOT_FOUND_ERROR
 		return nil, &problemDetails
 	}
 
@@ -422,7 +427,7 @@ func EapAuthComfirmRequestProcedure(updateEapSession models.EapSession, eapSessi
 				udmUrl); sendErr != nil {
 				logger.EapAuthComfirmLog.Infoln(sendErr.Error())
 				var problemDetails models.ProblemDetails
-				problemDetails.Cause = "UPSTREAM_SERVER_ERROR"
+				problemDetails.Cause = UPSTREAM_SERVER_ERROR
 				return nil, &problemDetails
 			}
 			ausfCurrentContext.AuthStatus = models.AuthResult_SUCCESS
