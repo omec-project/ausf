@@ -16,18 +16,18 @@ import (
 type AUSFContext struct {
 	suciSupiMap  sync.Map
 	UePool       sync.Map
+	snRegex      *regexp.Regexp
 	NfId         string
 	GroupID      string
-	SBIPort      int
 	RegisterIPv4 string
 	BindingIPv4  string
 	Url          string
-	UriScheme    models.UriScheme
 	NrfUri       string
+	UdmUeauUrl   string
+	UriScheme    models.UriScheme
 	NfService    map[models.ServiceName]models.NfService
 	PlmnList     []models.PlmnId
-	UdmUeauUrl   string
-	snRegex      *regexp.Regexp
+	SBIPort      int
 }
 
 type AusfUeContext struct {
