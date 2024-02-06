@@ -7,25 +7,23 @@ package producer
 
 import (
 	"context"
-	"math/big"
-
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"math/big"
 	"net/http"
 	"strings"
 
 	"github.com/bronze1man/radius"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
-
-	"github.com/omec-project/UeauCommon"
 	ausf_context "github.com/omec-project/ausf/context"
 	"github.com/omec-project/ausf/logger"
 	"github.com/omec-project/http_wrapper"
 	"github.com/omec-project/openapi/models"
+	"github.com/omec-project/util/ueauth"
 )
 
 const UPSTREAM_SERVER_ERROR = "UPSTREAM_SERVER_ERROR"
@@ -195,7 +193,10 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 			KausfDecode = ausfDecode
 		}
 		P0 := []byte(snName)
-		Kseaf := UeauCommon.GetKDFValue(KausfDecode, UeauCommon.FC_FOR_KSEAF_DERIVATION, P0, UeauCommon.KDFLen(P0))
+		Kseaf, err := ueauth.GetKDFValue(KausfDecode, ueauth.FC_FOR_KSEAF_DERIVATION, P0, ueauth.KDFLen(P0))
+		if err != nil {
+			logger.Auth5gAkaComfirmLog.Error(err)
+		}
 		ausfUeContext.XresStar = authInfoResult.AuthenticationVector.XresStar
 		ausfUeContext.Kausf = Kausf
 		ausfUeContext.Kseaf = hex.EncodeToString(Kseaf)
@@ -233,7 +234,10 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 			KausfDecode = ausfDecode
 		}
 		P0 := []byte(snName)
-		Kseaf := UeauCommon.GetKDFValue(KausfDecode, UeauCommon.FC_FOR_KSEAF_DERIVATION, P0, UeauCommon.KDFLen(P0))
+		Kseaf, err := ueauth.GetKDFValue(KausfDecode, ueauth.FC_FOR_KSEAF_DERIVATION, P0, ueauth.KDFLen(P0))
+		if err != nil {
+			logger.Auth5gAkaComfirmLog.Error(err)
+		}
 		ausfUeContext.Kseaf = hex.EncodeToString(Kseaf)
 
 		var eapPkt radius.EapPacket
