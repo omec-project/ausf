@@ -21,7 +21,7 @@ import (
 
 	"github.com/omec-project/ausf/logger"
 	"github.com/omec-project/ausf/producer"
-	"github.com/omec-project/http_wrapper"
+	"github.com/omec-project/util/httpwrapper"
 	"github.com/omec-project/openapi"
 	"github.com/omec-project/openapi/models"
 )
@@ -56,7 +56,7 @@ func HTTPEapAuthMethod(ctx *gin.Context) {
 		return
 	}
 
-	req := http_wrapper.NewRequest(ctx.Request, eapSessionReq)
+	req := httpwrapper.NewRequest(ctx.Request, eapSessionReq)
 	req.Params["authCtxId"] = ctx.Param("authCtxId")
 
 	rsp := producer.HandleEapAuthComfirmRequest(req)
@@ -105,7 +105,7 @@ func HTTPUeAuthenticationsAuthCtxID5gAkaConfirmationPut(ctx *gin.Context) {
 		return
 	}
 
-	req := http_wrapper.NewRequest(ctx.Request, confirmationData)
+	req := httpwrapper.NewRequest(ctx.Request, confirmationData)
 	req.Params["authCtxId"] = ctx.Param("authCtxId")
 
 	rsp := producer.HandleAuth5gAkaComfirmRequest(req)
@@ -154,7 +154,7 @@ func HTTPUeAuthenticationsPost(ctx *gin.Context) {
 		return
 	}
 
-	req := http_wrapper.NewRequest(ctx.Request, authInfo)
+	req := httpwrapper.NewRequest(ctx.Request, authInfo)
 
 	rsp := producer.HandleUeAuthPostRequest(req)
 
