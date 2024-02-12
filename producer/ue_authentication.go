@@ -21,8 +21,8 @@ import (
 	"github.com/google/gopacket/layers"
 	ausf_context "github.com/omec-project/ausf/context"
 	"github.com/omec-project/ausf/logger"
-	"github.com/omec-project/http_wrapper"
 	"github.com/omec-project/openapi/models"
+	"github.com/omec-project/util/httpwrapper"
 	"github.com/omec-project/util/ueauth"
 )
 
@@ -41,7 +41,7 @@ func GenerateRandomNumber() (uint8, error) {
 	return uint8(randomNumber.Int64()), nil
 }
 
-func HandleEapAuthComfirmRequest(request *http_wrapper.Request) *http_wrapper.Response {
+func HandleEapAuthComfirmRequest(request *httpwrapper.Request) *httpwrapper.Response {
 	logger.Auth5gAkaComfirmLog.Infof("EapAuthComfirmRequest")
 
 	updateEapSession := request.Body.(models.EapSession)
@@ -50,36 +50,36 @@ func HandleEapAuthComfirmRequest(request *http_wrapper.Request) *http_wrapper.Re
 	response, problemDetails := EapAuthComfirmRequestProcedure(updateEapSession, eapSessionID)
 
 	if response != nil {
-		return http_wrapper.NewResponse(http.StatusOK, nil, response)
+		return httpwrapper.NewResponse(http.StatusOK, nil, response)
 	} else if problemDetails != nil {
-		return http_wrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
+		return httpwrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
 	}
 	problemDetails = &models.ProblemDetails{
 		Status: http.StatusForbidden,
 		Cause:  "UNSPECIFIED",
 	}
-	return http_wrapper.NewResponse(http.StatusForbidden, nil, problemDetails)
+	return httpwrapper.NewResponse(http.StatusForbidden, nil, problemDetails)
 }
 
-func HandleAuth5gAkaComfirmRequest(request *http_wrapper.Request) *http_wrapper.Response {
+func HandleAuth5gAkaComfirmRequest(request *httpwrapper.Request) *httpwrapper.Response {
 	logger.Auth5gAkaComfirmLog.Infof("Auth5gAkaComfirmRequest")
 	updateConfirmationData := request.Body.(models.ConfirmationData)
 	ConfirmationDataResponseID := request.Params["authCtxId"]
 
 	response, problemDetails := Auth5gAkaComfirmRequestProcedure(updateConfirmationData, ConfirmationDataResponseID)
 	if response != nil {
-		return http_wrapper.NewResponse(http.StatusOK, nil, response)
+		return httpwrapper.NewResponse(http.StatusOK, nil, response)
 	} else if problemDetails != nil {
-		return http_wrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
+		return httpwrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
 	}
 	problemDetails = &models.ProblemDetails{
 		Status: http.StatusForbidden,
 		Cause:  "UNSPECIFIED",
 	}
-	return http_wrapper.NewResponse(http.StatusForbidden, nil, problemDetails)
+	return httpwrapper.NewResponse(http.StatusForbidden, nil, problemDetails)
 }
 
-func HandleUeAuthPostRequest(request *http_wrapper.Request) *http_wrapper.Response {
+func HandleUeAuthPostRequest(request *httpwrapper.Request) *httpwrapper.Response {
 	logger.UeAuthPostLog.Infof("HandleUeAuthPostRequest")
 	updateAuthenticationInfo := request.Body.(models.AuthenticationInfo)
 
@@ -88,15 +88,15 @@ func HandleUeAuthPostRequest(request *http_wrapper.Request) *http_wrapper.Respon
 	respHeader.Set("Location", locationURI)
 
 	if response != nil {
-		return http_wrapper.NewResponse(http.StatusCreated, respHeader, response)
+		return httpwrapper.NewResponse(http.StatusCreated, respHeader, response)
 	} else if problemDetails != nil {
-		return http_wrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
+		return httpwrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
 	}
 	problemDetails = &models.ProblemDetails{
 		Status: http.StatusForbidden,
 		Cause:  "UNSPECIFIED",
 	}
-	return http_wrapper.NewResponse(http.StatusForbidden, nil, problemDetails)
+	return httpwrapper.NewResponse(http.StatusForbidden, nil, problemDetails)
 }
 
 // func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationInfo) (
