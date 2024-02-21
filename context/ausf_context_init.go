@@ -16,7 +16,7 @@ import (
 	"github.com/omec-project/ausf/factory"
 	"github.com/omec-project/ausf/logger"
 	"github.com/omec-project/openapi/models"
-	"github.com/omec-project/path_util"
+	"github.com/omec-project/util/path_util"
 )
 
 func TestInit() {
