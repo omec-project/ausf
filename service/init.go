@@ -103,7 +103,7 @@ func (ausf *AUSF) Initialize(c *cli.Context) error {
 	roc := os.Getenv("MANAGED_BY_CONFIG_POD")
 	if roc == "true" {
 		initLog.Infoln("MANAGED_BY_CONFIG_POD is true")
-		commChannel := client.ConfigWatcher()
+		commChannel := client.ConfigWatcher(factory.AusfConfig.Configuration.WebuiUri)
 		go ausf.updateConfig(commChannel)
 	} else {
 		go func() {
