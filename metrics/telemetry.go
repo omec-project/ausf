@@ -10,7 +10,7 @@ package metrics
 import (
 	"net/http"
 
-	"github.com/omec-project/amf/logger"
+	"github.com/omec-project/ausf/logger"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
