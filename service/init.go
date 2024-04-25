@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/omec-project/ausf/context"
+	"github.com/omec-project/ausf/metrics"
 	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
 
@@ -226,6 +227,8 @@ func (ausf *AUSF) Start() {
 
 	router := logger_util.NewGinWithLogrus(logger.GinLog)
 	ueauthentication.AddService(router)
+
+	go metrics.InitMetrics()
 
 	ausf_context.Init()
 	self := ausf_context.GetSelf()
