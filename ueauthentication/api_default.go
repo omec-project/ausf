@@ -21,9 +21,9 @@ import (
 
 	"github.com/omec-project/ausf/logger"
 	"github.com/omec-project/ausf/producer"
-	"github.com/omec-project/util/httpwrapper"
 	"github.com/omec-project/openapi"
 	"github.com/omec-project/openapi/models"
+	"github.com/omec-project/util/httpwrapper"
 )
 
 // HTTPEapAuthMethod -
