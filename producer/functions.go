@@ -277,7 +277,7 @@ func getUdmUrl(nrfUri string) string {
 	nfDiscoverParam := Nnrf_NFDiscovery.SearchNFInstancesParamOpts{
 		ServiceNames: optional.NewInterface([]models.ServiceName{models.ServiceName_NUDM_UEAU}),
 	}
-	res, err := consumer.SendSearchNFInstances(nrfUri, models.NfType_UDM, models.NfType_AUSF, nfDiscoverParam)
+	res, err := consumer.SendSearchNFInstances(nrfUri, models.NfType_UDM, models.NfType_AUSF, &nfDiscoverParam)
 	if err != nil {
 		logger.UeAuthPostLog.Errorln("[Search UDM UEAU] ", err.Error())
 	} else if len(res.NfInstances) > 0 {

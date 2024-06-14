@@ -42,6 +42,8 @@ type Configuration struct {
 	WebuiUri        string          `yaml:"webuiUri"`
 	GroupId         string          `yaml:"groupId,omitempty"`
 	PlmnSupportList []models.PlmnId `yaml:"plmnSupportList,omitempty"`
+	EnableNrfCaching         bool   `yaml:"enableNrfCaching"`
+	NrfCacheEvictionInterval int    `yaml:"nrfCacheEvictionInterval,omitempty"`
 }
 
 type Sbi struct {

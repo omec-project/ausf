@@ -10,21 +10,32 @@ import (
 	"fmt"
 	"net/http"
 
+	ausf_context "github.com/omec-project/ausf/context"
 	"github.com/omec-project/ausf/logger"
+	nrf_cache "github.com/omec-project/nrf/nrfcache"
 	"github.com/omec-project/openapi/Nnrf_NFDiscovery"
 	"github.com/omec-project/openapi/models"
 )
 
 func SendSearchNFInstances(nrfUri string, targetNfType, requestNfType models.NfType,
-	param Nnrf_NFDiscovery.SearchNFInstancesParamOpts) (*models.SearchResult, error) {
+	param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts) (models.SearchResult, error) {
+	if ausf_context.GetSelf().EnableNrfCaching {
+		return nrf_cache.SearchNFInstances(nrfUri, targetNfType, requestNfType, param)
+	} else {
+		return SendNfDiscoveryToNrf(nrfUri, targetNfType, requestNfType, param)
+	}
+}
+
+func SendNfDiscoveryToNrf(nrfUri string, targetNfType, requestNfType models.NfType,
+	param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts) (models.SearchResult, error) {
 	configuration := Nnrf_NFDiscovery.NewConfiguration()
 	configuration.SetBasePath(nrfUri)
 	client := Nnrf_NFDiscovery.NewAPIClient(configuration)
 
 	result, rsp, rspErr := client.NFInstancesStoreApi.SearchNFInstances(context.TODO(),
-		targetNfType, requestNfType, &param)
+		targetNfType, requestNfType, param)
 	if rspErr != nil {
-		return nil, fmt.Errorf("NFInstancesStoreApi Response error: %+w", rspErr)
+		return result, fmt.Errorf("NFInstancesStoreApi Response error: %+w", rspErr)
 	}
 	defer func() {
 		if rspCloseErr := rsp.Body.Close(); rspCloseErr != nil {
@@ -32,7 +43,7 @@ func SendSearchNFInstances(nrfUri string, targetNfType, requestNfType models.NfT
 		}
 	}()
 	if rsp != nil && rsp.StatusCode == http.StatusTemporaryRedirect {
-		return nil, fmt.Errorf("Temporary Redirect For Non NRF Consumer")
+		return result, fmt.Errorf("Temporary Redirect For Non NRF Consumer")
 	}
-	return &result, nil
+	return result, rspErr
 }

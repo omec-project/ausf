@@ -8,6 +8,7 @@ package context
 import (
 	"regexp"
 	"sync"
+	"time"
 
 	"github.com/omec-project/ausf/logger"
 	"github.com/omec-project/openapi/models"
@@ -28,6 +29,8 @@ type AUSFContext struct {
 	NfService    map[models.ServiceName]models.NfService
 	PlmnList     []models.PlmnId
 	SBIPort      int
+	EnableNrfCaching         bool
+	NrfCacheEvictionInterval time.Duration
 }
 
 type AusfUeContext struct {
