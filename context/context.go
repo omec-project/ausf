@@ -15,20 +15,20 @@ import (
 )
 
 type AUSFContext struct {
-	suciSupiMap  sync.Map
-	UePool       sync.Map
-	snRegex      *regexp.Regexp
-	NfId         string
-	GroupID      string
-	RegisterIPv4 string
-	BindingIPv4  string
-	Url          string
-	NrfUri       string
-	UdmUeauUrl   string
-	UriScheme    models.UriScheme
-	NfService    map[models.ServiceName]models.NfService
-	PlmnList     []models.PlmnId
-	SBIPort      int
+	suciSupiMap              sync.Map
+	UePool                   sync.Map
+	snRegex                  *regexp.Regexp
+	NfId                     string
+	GroupID                  string
+	RegisterIPv4             string
+	BindingIPv4              string
+	Url                      string
+	NrfUri                   string
+	UdmUeauUrl               string
+	UriScheme                models.UriScheme
+	NfService                map[models.ServiceName]models.NfService
+	PlmnList                 []models.PlmnId
+	SBIPort                  int
 	EnableNrfCaching         bool
 	NrfCacheEvictionInterval time.Duration
 }
