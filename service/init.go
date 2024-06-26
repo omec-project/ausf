@@ -29,6 +29,7 @@ import (
 	"github.com/omec-project/ausf/util"
 	"github.com/omec-project/config5g/proto/client"
 	protos "github.com/omec-project/config5g/proto/sdcoreConfig"
+	nrf_cache "github.com/omec-project/nrf/nrfcache"
 	"github.com/omec-project/openapi/models"
 	"github.com/omec-project/util/http2_util"
 	logger_util "github.com/omec-project/util/logger"
@@ -238,6 +239,11 @@ func (ausf *AUSF) Start() {
 	ausfLogPath := util.AusfLogPath
 
 	addr := fmt.Sprintf("%s:%d", self.BindingIPv4, self.SBIPort)
+
+	if self.EnableNrfCaching {
+		initLog.Infoln("Enable NRF caching feature")
+		nrf_cache.InitNrfCaching(self.NrfCacheEvictionInterval*time.Second, consumer.SendNfDiscoveryToNrf)
+	}
 
 	signalChannel := make(chan os.Signal, 1)
 	signal.Notify(signalChannel, os.Interrupt, syscall.SIGTERM)

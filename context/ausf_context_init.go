@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -71,6 +72,14 @@ func InitAusfContext(context *AUSFContext) {
 	roc := os.Getenv("MANAGED_BY_CONFIG_POD")
 	if roc != "true" {
 		context.PlmnList = append(context.PlmnList, configuration.PlmnSupportList...)
+	}
+	context.EnableNrfCaching = configuration.EnableNrfCaching
+	if configuration.EnableNrfCaching {
+		if configuration.NrfCacheEvictionInterval == 0 {
+			context.NrfCacheEvictionInterval = time.Duration(900) // 15 mins
+		} else {
+			context.NrfCacheEvictionInterval = time.Duration(configuration.NrfCacheEvictionInterval)
+		}
 	}
 
 	// context.NfService
