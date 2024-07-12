@@ -54,6 +54,10 @@ func InitAusfContext(context *AUSFContext) {
 		} else {
 			context.UriScheme = models.UriScheme_HTTP
 		}
+		if tls := sbi.TLS; tls != nil {
+			context.Key = tls.Key
+			context.PEM = tls.PEM
+		}
 
 		context.BindingIPv4 = os.Getenv(sbi.BindingIPv4)
 		if context.BindingIPv4 != "" {

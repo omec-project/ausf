@@ -9,6 +9,9 @@ configuration:
     port: 29509
     registerIPv4: 1.1.1.1
     scheme: https
+    tls: # the local path of TLS key
+      key: free5gc/support/TLS/ausf.pem # AUSF TLS Certificate
+      pem: free5gc/support/TLS/ausf.pem # AUSF TLS Private key
   serviceNameList:
     - nausf-auth
 info:

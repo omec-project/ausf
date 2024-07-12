@@ -28,6 +28,8 @@ type AUSFContext struct {
 	NfService    map[models.ServiceName]models.NfService
 	PlmnList     []models.PlmnId
 	SBIPort      int
+	Key          string
+	PEM          string
 }
 
 type AusfUeContext struct {
