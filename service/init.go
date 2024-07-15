@@ -258,12 +258,10 @@ func (ausf *AUSF) Start() {
 	}
 
 	serverScheme := factory.AusfConfig.Configuration.Sbi.Scheme
-	ausfPemPath := factory.AusfConfig.Configuration.Sbi.TLS.PEM
-	ausfKeyPath := factory.AusfConfig.Configuration.Sbi.TLS.Key
 	if serverScheme == "http" {
 		err = server.ListenAndServe()
 	} else if serverScheme == "https" {
-		err = server.ListenAndServeTLS(ausfPemPath, ausfKeyPath)
+		err = server.ListenAndServeTLS(self.PEM, self.Key)
 	}
 
 	if err != nil {
