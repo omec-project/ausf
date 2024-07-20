@@ -15,6 +15,7 @@ import (
 
 	"github.com/omec-project/ausf/factory"
 	"github.com/omec-project/ausf/logger"
+	"github.com/omec-project/ausf/util"
 	"github.com/omec-project/openapi/models"
 	"github.com/omec-project/util/path_util"
 )
@@ -41,6 +42,8 @@ func InitAusfContext(context *AUSFContext) {
 	context.UriScheme = models.UriScheme(configuration.Sbi.Scheme) // default uri scheme
 	context.RegisterIPv4 = factory.AUSF_DEFAULT_IPV4               // default localhost
 	context.SBIPort = factory.AUSF_DEFAULT_PORT_INT                // default port
+	context.Key = util.AusfKeyPath                                 // default key path
+	context.PEM = util.AusfPemPath                                 // default PEM path
 	if sbi != nil {
 		if sbi.RegisterIPv4 != "" {
 			context.RegisterIPv4 = sbi.RegisterIPv4
@@ -53,6 +56,14 @@ func InitAusfContext(context *AUSFContext) {
 			context.UriScheme = models.UriScheme_HTTPS
 		} else {
 			context.UriScheme = models.UriScheme_HTTP
+		}
+		if tls := sbi.TLS; tls != nil {
+			if tls.Key != "" {
+				context.Key = tls.Key
+			}
+			if tls.PEM != "" {
+				context.PEM = tls.PEM
+			}
 		}
 
 		context.BindingIPv4 = os.Getenv(sbi.BindingIPv4)

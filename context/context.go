@@ -25,6 +25,8 @@ type AUSFContext struct {
 	NrfUri       string
 	UdmUeauUrl   string
 	UriScheme    models.UriScheme
+	Key          string
+	PEM          string
 	NfService    map[models.ServiceName]models.NfService
 	PlmnList     []models.PlmnId
 	SBIPort      int
