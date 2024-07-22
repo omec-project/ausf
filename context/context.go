@@ -6,6 +6,7 @@
 package context
 
 import (
+	"fmt"
 	"regexp"
 	"sync"
 	"time"
@@ -17,6 +18,7 @@ import (
 type AUSFContext struct {
 	suciSupiMap              sync.Map
 	UePool                   sync.Map
+	NfStatusSubscriptions    sync.Map // map[NfInstanceID]models.NrfSubscriptionData.SubscriptionId
 	snRegex                  *regexp.Regexp
 	NfId                     string
 	GroupID                  string
@@ -101,6 +103,10 @@ func GetAusfUeContext(ref string) *AusfUeContext {
 	context, _ := ausfContext.UePool.Load(ref)
 	ausfUeContext := context.(*AusfUeContext)
 	return ausfUeContext
+}
+
+func (context *AUSFContext) GetIPv4Uri() string {
+	return fmt.Sprintf("%s://%s:%d", context.UriScheme, context.RegisterIPv4, context.SBIPort)
 }
 
 func AddSuciSupiPairToMap(supiOrSuci string, supi string) {

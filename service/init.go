@@ -16,6 +16,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/omec-project/ausf/callback"
 	"github.com/omec-project/ausf/context"
 	"github.com/omec-project/ausf/metrics"
 	"github.com/sirupsen/logrus"
@@ -228,6 +229,7 @@ func (ausf *AUSF) Start() {
 
 	router := logger_util.NewGinWithLogrus(logger.GinLog)
 	ueauthentication.AddService(router)
+	callback.AddService(router)
 
 	go metrics.InitMetrics()
 
