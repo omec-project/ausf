@@ -236,7 +236,7 @@ func (ausf *AUSF) Start() {
 	ausf_context.Init()
 	self := ausf_context.GetSelf()
 	// Register to NRF
-	go ausf.registerNF()
+	go ausf.RegisterNF()
 
 	ausfLogPath := util.AusfLogPath
 
@@ -416,7 +416,7 @@ func (ausf *AUSF) UpdateNF() {
 	KeepAliveTimer = time.AfterFunc(time.Duration(heartBeatTimer)*time.Second, ausf.UpdateNF)
 }
 
-func (ausf *AUSF) registerNF() {
+func (ausf *AUSF) RegisterNF() {
 	for msg := range ConfigPodTrigger {
 		initLog.Infof("Minimum configuration from config pod available %v", msg)
 		self := ausf_context.GetSelf()
