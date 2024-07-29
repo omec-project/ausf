@@ -142,6 +142,6 @@ func GetSelf() *AUSFContext {
 	return &ausfContext
 }
 
-func (a *AUSFContext) GetSelfID() string {
-	return a.NfId
+func (context *AUSFContext) GetSelfID() string {
+	return context.NfId
 }
