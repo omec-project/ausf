@@ -272,7 +272,7 @@ func ConstructEapNoTypePkt(code radius.EapCode, pktID uint8) string {
 	return base64.StdEncoding.EncodeToString(b)
 }
 
-func getUdmUrl(nrfUri string) string {
+func GetUdmUrl(nrfUri string) string {
 	udmUrl := "https://localhost:29503" // default
 	nfDiscoverParam := Nnrf_NFDiscovery.SearchNFInstancesParamOpts{
 		ServiceNames: optional.NewInterface([]models.ServiceName{models.ServiceName_NUDM_UEAU}),

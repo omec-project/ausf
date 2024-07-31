@@ -12,22 +12,24 @@ import (
 
 	ausf_context "github.com/omec-project/ausf/context"
 	"github.com/omec-project/ausf/logger"
-	nrf_cache "github.com/omec-project/nrf/nrfcache"
+	nrfCache "github.com/omec-project/nrf/nrfcache"
 	"github.com/omec-project/openapi/Nnrf_NFDiscovery"
 	"github.com/omec-project/openapi/models"
 )
 
-func SendSearchNFInstances(nrfUri string, targetNfType, requestNfType models.NfType,
+var NRFCacheSearchNFInstances = nrfCache.SearchNFInstances
+
+var SendSearchNFInstances = func(nrfUri string, targetNfType, requestNfType models.NfType,
 	param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts,
 ) (models.SearchResult, error) {
 	if ausf_context.GetSelf().EnableNrfCaching {
-		return nrf_cache.SearchNFInstances(nrfUri, targetNfType, requestNfType, param)
+		return NRFCacheSearchNFInstances(nrfUri, targetNfType, requestNfType, param)
 	} else {
 		return SendNfDiscoveryToNrf(nrfUri, targetNfType, requestNfType, param)
 	}
 }
 
-func SendNfDiscoveryToNrf(nrfUri string, targetNfType, requestNfType models.NfType,
+var SendNfDiscoveryToNrf = func(nrfUri string, targetNfType, requestNfType models.NfType,
 	param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts,
 ) (models.SearchResult, error) {
 	// Set client and set url

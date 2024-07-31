@@ -136,7 +136,7 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 		authInfoReq.ResynchronizationInfo = updateAuthenticationInfo.ResynchronizationInfo
 	}
 
-	udmUrl := getUdmUrl(self.NrfUri)
+	udmUrl := GetUdmUrl(self.NrfUri)
 	client := createClientToUdmUeau(udmUrl)
 	authInfoResult, rsp, err := client.GenerateAuthDataApi.GenerateAuthData(context.Background(), supiOrSuci, authInfoReq)
 	if err != nil {

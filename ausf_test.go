@@ -15,9 +15,13 @@ import (
 	"time"
 
 	"github.com/omec-project/ausf/consumer"
+	"github.com/omec-project/ausf/context"
 	"github.com/omec-project/ausf/factory"
+	"github.com/omec-project/ausf/producer"
 	"github.com/omec-project/ausf/service"
+	"github.com/omec-project/openapi/Nnrf_NFDiscovery"
 	"github.com/omec-project/openapi/models"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -66,4 +70,32 @@ func TestRegisterNF(t *testing.T) {
 	time.Sleep(1 * time.Second)
 	require.Equal(t, service.KeepAliveTimer == nil, true)
 	*/
+}
+
+func TestGetUdmUrl(t *testing.T) {
+	fmt.Printf("test case GetUdmUrl \n")
+	callCountSearchNFInstances := 0
+	callCountSendNfDiscovery := 0
+	consumer.NRFCacheSearchNFInstances = func(nrfUri string, targetNfType, requestNfType models.NfType, param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts) (models.SearchResult, error) {
+		fmt.Printf("Test SearchNFInstance called\n")
+		callCountSearchNFInstances++
+		return models.SearchResult{}, nil
+	}
+	consumer.SendNfDiscoveryToNrf = func(nrfUri string, targetNfType, requestNfType models.NfType, param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts) (models.SearchResult, error) {
+		fmt.Printf("Test SendNfDiscoveryToNrf called\n")
+		callCountSendNfDiscovery++
+		return models.SearchResult{}, nil
+	}
+	// NRF caching enabled
+	context.GetSelf().EnableNrfCaching = true
+	// Try to discover UDM first time when NRF caching enabled
+	producer.GetUdmUrl(context.GetSelf().NrfUri)
+	assert.Equal(t, 1, callCountSearchNFInstances, "NF instance should be searched in the cache.")
+	assert.Equal(t, 0, callCountSendNfDiscovery, "NF discovery request should not be sent to NRF.")
+	// NRF caching disabled
+	context.GetSelf().EnableNrfCaching = false
+	// Try to discover UDM second time when NRF caching disabled
+	producer.GetUdmUrl(context.GetSelf().NrfUri)
+	assert.Equal(t, 1, callCountSearchNFInstances, "NF instance should be searched in the cache.")
+	assert.Equal(t, 1, callCountSendNfDiscovery, "NF discovery request should not be sent to NRF.")
 }
