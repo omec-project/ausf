@@ -17,7 +17,12 @@ import (
 	"github.com/omec-project/openapi/models"
 )
 
-var NRFCacheSearchNFInstances = nrfCache.SearchNFInstances
+var (
+	CreateSubscription        = SendCreateSubscription
+	NRFCacheSearchNFInstances = nrfCache.SearchNFInstances
+	StoreApiClient            = &Nnrf_NFDiscovery.APIClient{}
+	StoreApiSearchNFInstances = StoreApiClient.NFInstancesStoreApi.SearchNFInstances
+)
 
 var SendSearchNFInstances = func(nrfUri string, targetNfType, requestNfType models.NfType,
 	param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts,
@@ -35,9 +40,9 @@ var SendNfDiscoveryToNrf = func(nrfUri string, targetNfType, requestNfType model
 	// Set client and set url
 	configuration := Nnrf_NFDiscovery.NewConfiguration()
 	configuration.SetBasePath(nrfUri)
-	client := Nnrf_NFDiscovery.NewAPIClient(configuration)
+	StoreApiClient = Nnrf_NFDiscovery.NewAPIClient(configuration)
 
-	result, res, err := client.NFInstancesStoreApi.SearchNFInstances(context.TODO(), targetNfType, requestNfType, param)
+	result, res, err := StoreApiSearchNFInstances(context.TODO(), targetNfType, requestNfType, param)
 	if res != nil && res.StatusCode == http.StatusTemporaryRedirect {
 		err = fmt.Errorf("temporary redirect for non NRF consumer")
 	}
@@ -59,7 +64,7 @@ var SendNfDiscoveryToNrf = func(nrfUri string, targetNfType, requestNfType model
 				SubscrCond:              &models.NfInstanceIdCond{NfInstanceId: nfProfile.NfInstanceId},
 				ReqNfType:               requestNfType,
 			}
-			nrfSubData, problemDetails, err = SendCreateSubscription(nrfUri, nrfSubscriptionData)
+			nrfSubData, problemDetails, err = CreateSubscription(nrfUri, nrfSubscriptionData)
 			if problemDetails != nil {
 				logger.ConsumerLog.Errorf("SendCreateSubscription to NRF, Problem[%+v]", problemDetails)
 			} else if err != nil {

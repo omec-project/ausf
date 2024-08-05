@@ -10,12 +10,14 @@ import (
 	"strings"
 
 	"github.com/omec-project/ausf/consumer"
-	ausf_context "github.com/omec-project/ausf/context"
+	ausfContext "github.com/omec-project/ausf/context"
 	"github.com/omec-project/ausf/logger"
-	nrf_cache "github.com/omec-project/nrf/nrfcache"
+	nrfCache "github.com/omec-project/nrf/nrfcache"
 	"github.com/omec-project/openapi/models"
 	"github.com/omec-project/util/httpwrapper"
 )
+
+var NRFCacheRemoveNfProfileFromNrfCache = nrfCache.RemoveNfProfileFromNrfCache
 
 func HandleNfSubscriptionStatusNotify(request *httpwrapper.Request) *httpwrapper.Response {
 	logger.ProducerLog.Traceln("Handle NF Status Notify")
@@ -47,11 +49,11 @@ func NfSubscriptionStatusNotifyProcedure(notificationData models.NotificationDat
 	// If nrf caching is enabled, go ahead and delete the entry from the cache.
 	// This will force the AUSF to do nf discovery and get the updated nf profile from the NRF.
 	if notificationData.Event == models.NotificationEventType_DEREGISTERED {
-		if ausf_context.GetSelf().EnableNrfCaching {
-			ok := nrf_cache.RemoveNfProfileFromNrfCache(nfInstanceId)
+		if ausfContext.GetSelf().EnableNrfCaching {
+			ok := NRFCacheRemoveNfProfileFromNrfCache(nfInstanceId)
 			logger.ProducerLog.Tracef("nfinstance %v deleted from cache: %v", nfInstanceId, ok)
 		}
-		if subscriptionId, ok := ausf_context.GetSelf().NfStatusSubscriptions.Load(nfInstanceId); ok {
+		if subscriptionId, ok := ausfContext.GetSelf().NfStatusSubscriptions.Load(nfInstanceId); ok {
 			logger.ConsumerLog.Debugf("SubscriptionId of nfInstance %v is %v", nfInstanceId, subscriptionId.(string))
 			problemDetails, err := consumer.SendRemoveSubscription(subscriptionId.(string))
 			if problemDetails != nil {
@@ -60,7 +62,7 @@ func NfSubscriptionStatusNotifyProcedure(notificationData models.NotificationDat
 				logger.ConsumerLog.Errorf("Remove NF Subscription Error[%+v]", err)
 			} else {
 				logger.ConsumerLog.Infoln("Remove NF Subscription successful")
-				ausf_context.GetSelf().NfStatusSubscriptions.Delete(nfInstanceId)
+				ausfContext.GetSelf().NfStatusSubscriptions.Delete(nfInstanceId)
 			}
 		} else {
 			logger.ProducerLog.Infof("nfinstance %v not found in map", nfInstanceId)

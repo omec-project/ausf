@@ -138,7 +138,7 @@ var SendUpdateNFInstance = func(patchItem []models.PatchItem) (nfProfile models.
 	return
 }
 
-func SendCreateSubscription(nrfUri string, nrfSubscriptionData models.NrfSubscriptionData) (nrfSubData models.NrfSubscriptionData, problemDetails *models.ProblemDetails, err error) {
+var SendCreateSubscription = func(nrfUri string, nrfSubscriptionData models.NrfSubscriptionData) (nrfSubData models.NrfSubscriptionData, problemDetails *models.ProblemDetails, err error) {
 	logger.ConsumerLog.Debugf("Send Create Subscription")
 
 	// Set client and set url
@@ -168,7 +168,7 @@ func SendCreateSubscription(nrfUri string, nrfSubscriptionData models.NrfSubscri
 	return
 }
 
-func SendRemoveSubscription(subscriptionId string) (problemDetails *models.ProblemDetails, err error) {
+var SendRemoveSubscription = func(subscriptionId string) (problemDetails *models.ProblemDetails, err error) {
 	logger.ConsumerLog.Infoln("Send Remove Subscription")
 
 	ausfSelf := ausf_context.GetSelf()
