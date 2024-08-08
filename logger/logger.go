@@ -22,6 +22,8 @@ var (
 	Auth5gAkaComfirmLog *logrus.Entry
 	EapAuthComfirmLog   *logrus.Entry
 	HandlerLog          *logrus.Entry
+	CallbackLog         *logrus.Entry
+	ProducerLog         *logrus.Entry
 	ContextLog          *logrus.Entry
 	ConsumerLog         *logrus.Entry
 	GinLog              *logrus.Entry
@@ -47,6 +49,8 @@ func init() {
 	Auth5gAkaComfirmLog = log.WithFields(logrus.Fields{"component": "AUSF", "category": "5gAkaAuth"})
 	EapAuthComfirmLog = log.WithFields(logrus.Fields{"component": "AUSF", "category": "EapAkaAuth"})
 	HandlerLog = log.WithFields(logrus.Fields{"component": "AUSF", "category": "Handler"})
+	CallbackLog = log.WithFields(logrus.Fields{"component": "AUSF", "category": "Callback"})
+	ProducerLog = log.WithFields(logrus.Fields{"component": "AUSF", "category": "Producer"})
 	ContextLog = log.WithFields(logrus.Fields{"component": "AUSF", "category": "ctx"})
 	ConsumerLog = log.WithFields(logrus.Fields{"component": "AUSF", "category": "Consumer"})
 	GinLog = log.WithFields(logrus.Fields{"component": "AUSF", "category": "GIN"})
