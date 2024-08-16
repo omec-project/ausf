@@ -235,8 +235,6 @@ func (ausf *AUSF) Start() {
 
 	ausf_context.Init()
 	self := ausf_context.GetSelf()
-	// Register to NRF
-	go ausf.RegisterNF()
 
 	ausfLogPath := util.AusfLogPath
 
@@ -246,6 +244,8 @@ func (ausf *AUSF) Start() {
 		initLog.Infoln("Enable NRF caching feature")
 		nrfCache.InitNrfCaching(self.NrfCacheEvictionInterval*time.Second, consumer.SendNfDiscoveryToNrf)
 	}
+	// Register to NRF
+	go ausf.RegisterNF()
 
 	signalChannel := make(chan os.Signal, 1)
 	signal.Notify(signalChannel, os.Interrupt, syscall.SIGTERM)
