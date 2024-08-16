@@ -32,7 +32,7 @@ func SendSearchNFInstances(nrfUri string, targetNfType, requestNfType models.NfT
 		}
 	}()
 	if rsp != nil && rsp.StatusCode == http.StatusTemporaryRedirect {
-		return nil, fmt.Errorf("Temporary Redirect For Non NRF Consumer")
+		return nil, fmt.Errorf("temporary Redirect For Non NRF Consumer")
 	}
 	return &result, nil
 }

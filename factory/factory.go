@@ -42,7 +42,7 @@ func CheckConfigVersion() error {
 	currentVersion := AusfConfig.GetVersion()
 
 	if currentVersion != AUSF_EXPECTED_CONFIG_VERSION {
-		return fmt.Errorf("config version is [%s], but expected is [%s].",
+		return fmt.Errorf("config version is [%s], but expected is [%s]",
 			currentVersion, AUSF_EXPECTED_CONFIG_VERSION)
 	}
 	logger.CfgLog.Infof("config version [%s]", currentVersion)

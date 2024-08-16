@@ -47,7 +47,7 @@ func main() {
 func action(c *cli.Context) error {
 	if err := AUSF.Initialize(c); err != nil {
 		logger.CfgLog.Errorf("%+v", err)
-		return fmt.Errorf("Failed to initialize !!")
+		return fmt.Errorf("failed to initialize")
 	}
 
 	AUSF.Start()
