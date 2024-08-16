@@ -21,7 +21,7 @@ var (
 	CreateSubscription        = SendCreateSubscription
 	NRFCacheSearchNFInstances = nrfCache.SearchNFInstances
 	StoreApiClient            = &Nnrf_NFDiscovery.APIClient{}
-	StoreApiSearchNFInstances = StoreApiClient.NFInstancesStoreApi.SearchNFInstances
+	StoreApiSearchNFInstances = (*Nnrf_NFDiscovery.NFInstancesStoreApiService).SearchNFInstances
 )
 
 var SendSearchNFInstances = func(nrfUri string, targetNfType, requestNfType models.NfType,
@@ -40,9 +40,9 @@ var SendNfDiscoveryToNrf = func(nrfUri string, targetNfType, requestNfType model
 	// Set client and set url
 	configuration := Nnrf_NFDiscovery.NewConfiguration()
 	configuration.SetBasePath(nrfUri)
-	StoreApiClient = Nnrf_NFDiscovery.NewAPIClient(configuration)
+	client := Nnrf_NFDiscovery.NewAPIClient(configuration)
 
-	result, res, err := StoreApiSearchNFInstances(context.TODO(), targetNfType, requestNfType, param)
+	result, res, err := StoreApiSearchNFInstances(client.NFInstancesStoreApi, context.TODO(), targetNfType, requestNfType, param)
 	if res != nil && res.StatusCode == http.StatusTemporaryRedirect {
 		err = fmt.Errorf("temporary redirect for non NRF consumer")
 	}

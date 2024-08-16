@@ -255,7 +255,7 @@ func TestCreateSubscriptionSuccess(t *testing.T) {
 		consumer.StoreApiSearchNFInstances = origStoreApiSearchNFInstances
 		consumer.CreateSubscription = origCreateSubscription
 	}()
-	consumer.StoreApiSearchNFInstances = func(ctx context.Context, targetNfType models.NfType, requesterNfType models.NfType, localVarOptionals *Nnrf_NFDiscovery.SearchNFInstancesParamOpts) (models.SearchResult, *http.Response, error) {
+	consumer.StoreApiSearchNFInstances = func(*Nnrf_NFDiscovery.NFInstancesStoreApiService, context.Context, models.NfType, models.NfType, *Nnrf_NFDiscovery.SearchNFInstancesParamOpts) (models.SearchResult, *http.Response, error) {
 		fmt.Printf("Test SearchNFInstances called\n")
 		return searchResult, &httpResponse, nil
 	}
@@ -434,7 +434,7 @@ func TestCreateSubscriptionFail(t *testing.T) {
 	}
 	for i := range parameters {
 		t.Run(fmt.Sprintf("CreateSubscription testname %v result %v", parameters[i].testName, parameters[i].result), func(t *testing.T) {
-			consumer.StoreApiSearchNFInstances = func(ctx context.Context, targetNfType models.NfType, requesterNfType models.NfType, localVarOptionals *Nnrf_NFDiscovery.SearchNFInstancesParamOpts) (models.SearchResult, *http.Response, error) {
+			consumer.StoreApiSearchNFInstances = func(*Nnrf_NFDiscovery.NFInstancesStoreApiService, context.Context, models.NfType, models.NfType, *Nnrf_NFDiscovery.SearchNFInstancesParamOpts) (models.SearchResult, *http.Response, error) {
 				fmt.Printf("Test SearchNFInstances called\n")
 				return parameters[i].searchResult, &parameters[i].httpResponse, nil
 			}
