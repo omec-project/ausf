@@ -610,5 +610,6 @@ func TestNfSubscriptionStatusNotify(t *testing.T) {
 
 func TestMain(m *testing.M) {
 	setupTest()
-	m.Run()
+	exitVal := m.Run()
+	os.Exit(exitVal)
 }
