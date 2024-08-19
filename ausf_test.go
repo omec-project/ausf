@@ -54,16 +54,16 @@ func TestRegisterNF(t *testing.T) {
 		consumer.SendSearchNFInstances = origSearchNFInstances
 		consumer.SendUpdateNFInstance = origUpdateNFInstance
 	}()
-	fmt.Printf("test case TestRegisterNF \n")
+	fmt.Printf("test case TestRegisterNF")
 	var prof models.NfProfile
 	consumer.SendRegisterNFInstance = func(nrfUri string, nfInstanceId string, profile models.NfProfile) (models.NfProfile, string, string, error) {
 		prof = profile
 		prof.HeartBeatTimer = 1
-		fmt.Printf("test RegisterNFInstance called\n")
+		fmt.Printf("test RegisterNFInstance called")
 		return prof, "", "", nil
 	}
 	consumer.SendSearchNFInstances = func(nrfUri string, targetNfType, requestNfType models.NfType, param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts) (models.SearchResult, error) {
-		fmt.Printf("test SearchNFInstance called\n")
+		fmt.Printf("test SearchNFInstance called")
 		return models.SearchResult{}, nil
 	}
 	consumer.SendUpdateNFInstance = func(patchItem []models.PatchItem) (nfProfile models.NfProfile, problemDetails *models.ProblemDetails, err error) {
@@ -80,7 +80,7 @@ func TestRegisterNF(t *testing.T) {
 }
 
 func TestGetUDMUri(t *testing.T) {
-	fmt.Printf("test cases for Get UDM URI \n")
+	fmt.Printf("test cases for Get UDM URI")
 	callCountSearchNFInstances := 0
 	callCountSendNfDiscovery := 0
 	origNRFCacheSearchNFInstances := consumer.NRFCacheSearchNFInstances
@@ -172,12 +172,12 @@ func TestGetUDMUri(t *testing.T) {
 		consumer.SendNfDiscoveryToNrf = origSendNfDiscoveryToNrf
 	}()
 	consumer.NRFCacheSearchNFInstances = func(nrfUri string, targetNfType, requestNfType models.NfType, param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts) (models.SearchResult, error) {
-		fmt.Printf("test SearchNFInstance called\n")
+		fmt.Printf("test SearchNFInstance called")
 		callCountSearchNFInstances++
 		return searchResult1, nil
 	}
 	consumer.SendNfDiscoveryToNrf = func(nrfUri string, targetNfType, requestNfType models.NfType, param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts) (models.SearchResult, error) {
-		fmt.Printf("test SendNfDiscoveryToNrf called\n")
+		fmt.Printf("test SendNfDiscoveryToNrf called")
 		callCountSendNfDiscovery++
 		return searchResult2, nil
 	}
@@ -221,7 +221,7 @@ func TestGetUDMUri(t *testing.T) {
 }
 
 func TestCreateSubscriptionSuccess(t *testing.T) {
-	fmt.Printf("test cases for CreateSubscription \n")
+	fmt.Printf("test cases for CreateSubscription")
 	udmProfile := models.NfProfile{
 		UdmInfo: &models.UdmInfo{
 			RoutingIndicators: []string{},
@@ -256,11 +256,11 @@ func TestCreateSubscriptionSuccess(t *testing.T) {
 		consumer.CreateSubscription = origCreateSubscription
 	}()
 	consumer.StoreApiSearchNFInstances = func(*Nnrf_NFDiscovery.NFInstancesStoreApiService, context.Context, models.NfType, models.NfType, *Nnrf_NFDiscovery.SearchNFInstancesParamOpts) (models.SearchResult, *http.Response, error) {
-		fmt.Printf("test SearchNFInstances called\n")
+		fmt.Printf("test SearchNFInstances called")
 		return searchResult, &httpResponse, nil
 	}
 	consumer.CreateSubscription = func(nrfUri string, nrfSubscriptionData models.NrfSubscriptionData) (nrfSubData models.NrfSubscriptionData, problemDetails *models.ProblemDetails, err error) {
-		fmt.Printf("test SendCreateSubscription called\n")
+		fmt.Printf("test SendCreateSubscription called")
 		callCountSendCreateSubscription++
 		return models.NrfSubscriptionData{
 			NfStatusNotificationUri: "https://:0/nausf-callback/v1/nf-status-notify",
@@ -312,7 +312,7 @@ func TestCreateSubscriptionSuccess(t *testing.T) {
 }
 
 func TestCreateSubscriptionFail(t *testing.T) {
-	fmt.Printf("test cases for CreateSubscription \n")
+	fmt.Printf("test cases for CreateSubscription")
 	udmProfile := models.NfProfile{
 		UdmInfo: &models.UdmInfo{
 			RoutingIndicators: []string{},
@@ -435,12 +435,12 @@ func TestCreateSubscriptionFail(t *testing.T) {
 	for i := range parameters {
 		t.Run(fmt.Sprintf("CreateSubscription testname %v result %v", parameters[i].testName, parameters[i].result), func(t *testing.T) {
 			consumer.StoreApiSearchNFInstances = func(*Nnrf_NFDiscovery.NFInstancesStoreApiService, context.Context, models.NfType, models.NfType, *Nnrf_NFDiscovery.SearchNFInstancesParamOpts) (models.SearchResult, *http.Response, error) {
-				fmt.Printf("test SearchNFInstances called\n")
+				fmt.Printf("test SearchNFInstances called")
 				return parameters[i].searchResult, &parameters[i].httpResponse, nil
 			}
 
 			consumer.CreateSubscription = func(nrfUri string, nrfSubscriptionData models.NrfSubscriptionData) (nrfSubData models.NrfSubscriptionData, problemDetails *models.ProblemDetails, err error) {
-				fmt.Printf("test SendCreateSubscription called\n")
+				fmt.Printf("test SendCreateSubscription called")
 				callCountSendCreateSubscription++
 				return parameters[i].nrfSubscriptionData, parameters[i].subscriptionProblem, parameters[i].subscriptionError
 			}
@@ -456,7 +456,7 @@ func TestCreateSubscriptionFail(t *testing.T) {
 }
 
 func TestNfSubscriptionStatusNotify(t *testing.T) {
-	fmt.Printf("test cases fore NfSubscriptionStatusNotify \n")
+	fmt.Printf("test cases for NfSubscriptionStatusNotify")
 	callCountSendRemoveSubscription := 0
 	callCountNRFCacheRemoveNfProfileFromNrfCache := 0
 	origSendRemoveSubscription := consumer.SendRemoveSubscription
@@ -466,12 +466,12 @@ func TestNfSubscriptionStatusNotify(t *testing.T) {
 		producer.NRFCacheRemoveNfProfileFromNrfCache = origNRFCacheRemoveNfProfileFromNrfCache
 	}()
 	consumer.SendRemoveSubscription = func(subscriptionId string) (problemDetails *models.ProblemDetails, err error) {
-		fmt.Printf("test SendRemoveSubscription called\n")
+		fmt.Printf("test SendRemoveSubscription called")
 		callCountSendRemoveSubscription++
 		return nil, nil
 	}
 	producer.NRFCacheRemoveNfProfileFromNrfCache = func(nfInstanceId string) bool {
-		fmt.Printf("test NRFCacheRemoveNfProfileFromNrfCache called\n")
+		fmt.Printf("test NRFCacheRemoveNfProfileFromNrfCache called")
 		callCountNRFCacheRemoveNfProfileFromNrfCache++
 		return true
 	}
