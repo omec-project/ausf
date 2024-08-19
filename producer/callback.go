@@ -20,7 +20,7 @@ import (
 var NRFCacheRemoveNfProfileFromNrfCache = nrfCache.RemoveNfProfileFromNrfCache
 
 func HandleNfSubscriptionStatusNotify(request *httpwrapper.Request) *httpwrapper.Response {
-	logger.ProducerLog.Traceln("Handle NF Status Notify")
+	logger.ProducerLog.Traceln("handle NF Status Notify")
 
 	notificationData := request.Body.(models.NotificationData)
 
@@ -57,11 +57,11 @@ func NfSubscriptionStatusNotifyProcedure(notificationData models.NotificationDat
 			logger.ConsumerLog.Debugf("SubscriptionId of nfInstance %v is %v", nfInstanceId, subscriptionId.(string))
 			problemDetails, err := consumer.SendRemoveSubscription(subscriptionId.(string))
 			if problemDetails != nil {
-				logger.ConsumerLog.Errorf("Remove NF Subscription Failed Problem[%+v]", problemDetails)
+				logger.ConsumerLog.Errorf("remove NF Subscription Failed Problem[%+v]", problemDetails)
 			} else if err != nil {
-				logger.ConsumerLog.Errorf("Remove NF Subscription Error[%+v]", err)
+				logger.ConsumerLog.Errorf("remove NF Subscription Error[%+v]", err)
 			} else {
-				logger.ConsumerLog.Infoln("Remove NF Subscription successful")
+				logger.ConsumerLog.Infoln("remove NF Subscription successful")
 				ausfContext.GetSelf().NfStatusSubscriptions.Delete(nfInstanceId)
 			}
 		} else {

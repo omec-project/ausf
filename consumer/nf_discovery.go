@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"net/http"
 
-	ausf_context "github.com/omec-project/ausf/context"
+	ausfContext "github.com/omec-project/ausf/context"
 	"github.com/omec-project/ausf/logger"
 	"github.com/omec-project/openapi/Nnrf_NFDiscovery"
 	"github.com/omec-project/openapi/models"
@@ -25,9 +25,8 @@ var (
 )
 
 var SendSearchNFInstances = func(nrfUri string, targetNfType, requestNfType models.NfType,
-	param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts,
-) (models.SearchResult, error) {
-	if ausf_context.GetSelf().EnableNrfCaching {
+	param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts) (models.SearchResult, error) {
+	if ausfContext.GetSelf().EnableNrfCaching {
 		return NRFCacheSearchNFInstances(nrfUri, targetNfType, requestNfType, param)
 	} else {
 		return SendNfDiscoveryToNrf(nrfUri, targetNfType, requestNfType, param)
@@ -35,8 +34,7 @@ var SendSearchNFInstances = func(nrfUri string, targetNfType, requestNfType mode
 }
 
 var SendNfDiscoveryToNrf = func(nrfUri string, targetNfType, requestNfType models.NfType,
-	param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts,
-) (models.SearchResult, error) {
+	param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts) (models.SearchResult, error) {
 	// Set client and set url
 	configuration := Nnrf_NFDiscovery.NewConfiguration()
 	configuration.SetBasePath(nrfUri)
@@ -52,7 +50,7 @@ var SendNfDiscoveryToNrf = func(nrfUri string, targetNfType, requestNfType model
 		}
 	}()
 
-	ausfSelf := ausf_context.GetSelf()
+	ausfSelf := ausfContext.GetSelf()
 
 	var nrfSubData models.NrfSubscriptionData
 	var problemDetails *models.ProblemDetails

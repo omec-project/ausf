@@ -12,14 +12,14 @@ import (
 	"strings"
 	"time"
 
-	ausf_context "github.com/omec-project/ausf/context"
+	ausfContext "github.com/omec-project/ausf/context"
 	"github.com/omec-project/ausf/logger"
 	"github.com/omec-project/openapi"
 	"github.com/omec-project/openapi/Nnrf_NFManagement"
 	"github.com/omec-project/openapi/models"
 )
 
-func BuildNFInstance(ausfContext *ausf_context.AUSFContext) (profile models.NfProfile, err error) {
+func BuildNFInstance(ausfContext *ausfContext.AUSFContext) (profile models.NfProfile, err error) {
 	profile.NfInstanceId = ausfContext.NfId
 	profile.NfType = models.NfType_AUSF
 	profile.NfStatus = models.NfStatus_REGISTERED
@@ -83,7 +83,7 @@ var SendRegisterNFInstance = func(nrfUri, nfInstanceId string, profile models.Nf
 func SendDeregisterNFInstance() (*models.ProblemDetails, error) {
 	logger.AppLog.Infof("Send Deregister NFInstance")
 
-	ausfSelf := ausf_context.GetSelf()
+	ausfSelf := ausfContext.GetSelf()
 	// Set client and set url
 	configuration := Nnrf_NFManagement.NewConfiguration()
 	configuration.SetBasePath(ausfSelf.NrfUri)
@@ -111,7 +111,7 @@ func SendDeregisterNFInstance() (*models.ProblemDetails, error) {
 var SendUpdateNFInstance = func(patchItem []models.PatchItem) (nfProfile models.NfProfile, problemDetails *models.ProblemDetails, err error) {
 	logger.ConsumerLog.Debugf("Send Update NFInstance")
 
-	ausfSelf := ausf_context.GetSelf()
+	ausfSelf := ausfContext.GetSelf()
 	configuration := Nnrf_NFManagement.NewConfiguration()
 	configuration.SetBasePath(ausfSelf.NrfUri)
 	client := Nnrf_NFManagement.NewAPIClient(configuration)
@@ -139,7 +139,7 @@ var SendUpdateNFInstance = func(patchItem []models.PatchItem) (nfProfile models.
 }
 
 var SendCreateSubscription = func(nrfUri string, nrfSubscriptionData models.NrfSubscriptionData) (nrfSubData models.NrfSubscriptionData, problemDetails *models.ProblemDetails, err error) {
-	logger.ConsumerLog.Debugf("Send Create Subscription")
+	logger.ConsumerLog.Debugf("send Create Subscription")
 
 	// Set client and set url
 	configuration := Nnrf_NFManagement.NewConfiguration()
@@ -169,9 +169,9 @@ var SendCreateSubscription = func(nrfUri string, nrfSubscriptionData models.NrfS
 }
 
 var SendRemoveSubscription = func(subscriptionId string) (problemDetails *models.ProblemDetails, err error) {
-	logger.ConsumerLog.Infoln("Send Remove Subscription")
+	logger.ConsumerLog.Infoln("send Remove Subscription")
 
-	ausfSelf := ausf_context.GetSelf()
+	ausfSelf := ausfContext.GetSelf()
 	// Set client and set url
 	configuration := Nnrf_NFManagement.NewConfiguration()
 	configuration.SetBasePath(ausfSelf.NrfUri)
@@ -184,7 +184,7 @@ var SendRemoveSubscription = func(subscriptionId string) (problemDetails *models
 	} else if res != nil {
 		defer func() {
 			if bodyCloseErr := res.Body.Close(); bodyCloseErr != nil {
-				err = fmt.Errorf("RemoveSubscription' response body cannot close: %w", bodyCloseErr)
+				err = fmt.Errorf("RemoveSubscription's response body cannot close: %w", bodyCloseErr)
 			}
 		}()
 		if res.Status != err.Error() {

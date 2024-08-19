@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-
 	"github.com/omec-project/ausf/factory"
 	"github.com/omec-project/ausf/logger"
 	"github.com/omec-project/ausf/util"

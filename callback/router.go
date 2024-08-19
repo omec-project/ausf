@@ -11,7 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/omec-project/ausf/logger"
-	logger_util "github.com/omec-project/util/logger"
+	loggerUtil "github.com/omec-project/util/logger"
 )
 
 // Route is the information for every URI.
@@ -20,7 +20,7 @@ type Route struct {
 	HandlerFunc gin.HandlerFunc
 	// Name is the name of this Route.
 	Name string
-	// Method is the string for the HTTP method. ex) GET, POST etc..
+	// Method is the string for the HTTP method, ex: GET, POST etc..
 	Method string
 	// Pattern is the pattern of the URI.
 	Pattern string
@@ -31,7 +31,7 @@ type Routes []Route
 
 // NewRouter returns a new router.
 func NewRouter() *gin.Engine {
-	router := logger_util.NewGinWithLogrus(logger.GinLog)
+	router := loggerUtil.NewGinWithLogrus(logger.GinLog)
 	AddService(router)
 	return router
 }
