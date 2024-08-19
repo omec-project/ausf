@@ -17,15 +17,11 @@ import (
 	"time"
 
 	"github.com/omec-project/ausf/callback"
-	"github.com/omec-project/ausf/context"
-	"github.com/omec-project/ausf/metrics"
-	"github.com/sirupsen/logrus"
-	"github.com/urfave/cli"
-
 	"github.com/omec-project/ausf/consumer"
-	ausf_context "github.com/omec-project/ausf/context"
+	"github.com/omec-project/ausf/context"
 	"github.com/omec-project/ausf/factory"
 	"github.com/omec-project/ausf/logger"
+	"github.com/omec-project/ausf/metrics"
 	"github.com/omec-project/ausf/ueauthentication"
 	"github.com/omec-project/ausf/util"
 	"github.com/omec-project/config5g/proto/client"
@@ -36,6 +32,8 @@ import (
 	logger_util "github.com/omec-project/util/logger"
 	"github.com/omec-project/util/path_util"
 	pathUtilLogger "github.com/omec-project/util/path_util/logger"
+	"github.com/sirupsen/logrus"
+	"github.com/urfave/cli"
 )
 
 type AUSF struct{}
@@ -172,7 +170,7 @@ func (ausf *AUSF) FilterCli(c *cli.Context) (args []string) {
 
 func (ausf *AUSF) updateConfig(commChannel chan *protos.NetworkSliceResponse) bool {
 	var minConfig bool
-	context := ausf_context.GetSelf()
+	context := context.GetSelf()
 	for rsp := range commChannel {
 		logger.GrpcLog.Infoln("Received updateConfig in the ausf app : ", rsp)
 		for _, ns := range rsp.NetworkSlice {
@@ -233,8 +231,8 @@ func (ausf *AUSF) Start() {
 
 	go metrics.InitMetrics()
 
-	ausf_context.Init()
-	self := ausf_context.GetSelf()
+	context.Init()
+	self := context.GetSelf()
 
 	ausfLogPath := util.AusfLogPath
 
@@ -420,7 +418,7 @@ func (ausf *AUSF) RegisterNF() {
 	for msg := range ConfigPodTrigger {
 		if msg {
 			initLog.Infof("Minimum configuration from config pod available %v", msg)
-			self := ausf_context.GetSelf()
+			self := context.GetSelf()
 			profile, err := consumer.BuildNFInstance(self)
 			if err != nil {
 				initLog.Error("Build AUSF Profile Error")
