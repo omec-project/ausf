@@ -16,6 +16,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/omec-project/ausf/callback"
 	"github.com/omec-project/ausf/consumer"
 	"github.com/omec-project/ausf/context"
 	"github.com/omec-project/ausf/factory"
@@ -26,6 +27,7 @@ import (
 	"github.com/omec-project/config5g/proto/client"
 	protos "github.com/omec-project/config5g/proto/sdcoreConfig"
 	"github.com/omec-project/openapi/models"
+	nrfCache "github.com/omec-project/openapi/nrfcache"
 	"github.com/omec-project/util/http2_util"
 	logger_util "github.com/omec-project/util/logger"
 	"github.com/omec-project/util/path_util"
@@ -225,17 +227,23 @@ func (ausf *AUSF) Start() {
 
 	router := logger_util.NewGinWithLogrus(logger.GinLog)
 	ueauthentication.AddService(router)
+	callback.AddService(router)
 
 	go metrics.InitMetrics()
 
 	context.Init()
 	self := context.GetSelf()
-	// Register to NRF
-	go ausf.registerNF()
 
 	ausfLogPath := util.AusfLogPath
 
 	addr := fmt.Sprintf("%s:%d", self.BindingIPv4, self.SBIPort)
+
+	if self.EnableNrfCaching {
+		initLog.Infoln("Enable NRF caching feature")
+		nrfCache.InitNrfCaching(self.NrfCacheEvictionInterval*time.Second, consumer.SendNfDiscoveryToNrf)
+	}
+	// Register to NRF
+	go ausf.RegisterNF()
 
 	signalChannel := make(chan os.Signal, 1)
 	signal.Notify(signalChannel, os.Interrupt, syscall.SIGTERM)
@@ -406,22 +414,39 @@ func (ausf *AUSF) UpdateNF() {
 	KeepAliveTimer = time.AfterFunc(time.Duration(heartBeatTimer)*time.Second, ausf.UpdateNF)
 }
 
-func (ausf *AUSF) registerNF() {
+func (ausf *AUSF) RegisterNF() {
 	for msg := range ConfigPodTrigger {
-		initLog.Infof("Minimum configuration from config pod available %v", msg)
-		self := context.GetSelf()
-		profile, err := consumer.BuildNFInstance(self)
-		if err != nil {
-			initLog.Error("Build AUSF Profile Error")
-		}
-		var prof models.NfProfile
-		prof, _, self.NfId, err = consumer.SendRegisterNFInstance(self.NrfUri, self.NfId, profile)
-		if err != nil {
-			initLog.Errorf("AUSF register to NRF Error[%s]", err.Error())
+		if msg {
+			initLog.Infof("Minimum configuration from config pod available %v", msg)
+			self := context.GetSelf()
+			profile, err := consumer.BuildNFInstance(self)
+			if err != nil {
+				initLog.Error("Build AUSF Profile Error")
+			}
+			var prof models.NfProfile
+			prof, _, self.NfId, err = consumer.SendRegisterNFInstance(self.NrfUri, self.NfId, profile)
+			if err != nil {
+				initLog.Errorf("AUSF register to NRF Error[%s]", err.Error())
+			} else {
+				//stop keepAliveTimer if its running
+				ausf.StartKeepAliveTimer(prof)
+				logger.CfgLog.Infof("Sent Register NF Instance with updated profile")
+			}
 		} else {
-			//stop keepAliveTimer if its running
-			ausf.StartKeepAliveTimer(prof)
-			logger.CfgLog.Infof("Sent Register NF Instance with updated profile")
+			// stopping keepAlive timer
+			KeepAliveTimerMutex.Lock()
+			ausf.StopKeepAliveTimer()
+			KeepAliveTimerMutex.Unlock()
+			initLog.Infof("AUSF is not having Minimum Config to Register/Update to NRF")
+			problemDetails, err := consumer.SendDeregisterNFInstance()
+			if problemDetails != nil {
+				initLog.Errorf("AUSF Deregister Instance to NRF failed, Problem: [+%v]", problemDetails)
+			}
+			if err != nil {
+				initLog.Errorf("AUSF Deregister Instance to NRF Error[%s]", err.Error())
+			} else {
+				logger.InitLog.Infof("Deregister from NRF successfully")
+			}
 		}
 	}
 }

@@ -1,35 +1,40 @@
 // Copyright 2019 free5GC.org
-//
+// SPDX-FileCopyrightText: 2024 Canonical Ltd.
 // SPDX-License-Identifier: Apache-2.0
 //
 
 package context
 
 import (
+	"fmt"
 	"regexp"
 	"sync"
+	"time"
 
 	"github.com/omec-project/ausf/logger"
 	"github.com/omec-project/openapi/models"
 )
 
 type AUSFContext struct {
-	suciSupiMap  sync.Map
-	UePool       sync.Map
-	snRegex      *regexp.Regexp
-	NfId         string
-	GroupID      string
-	RegisterIPv4 string
-	BindingIPv4  string
-	Url          string
-	NrfUri       string
-	UdmUeauUrl   string
-	UriScheme    models.UriScheme
-	Key          string
-	PEM          string
-	NfService    map[models.ServiceName]models.NfService
-	PlmnList     []models.PlmnId
-	SBIPort      int
+	suciSupiMap              sync.Map
+	UePool                   sync.Map
+	NfStatusSubscriptions    sync.Map // map[NfInstanceID]models.NrfSubscriptionData.SubscriptionId
+	snRegex                  *regexp.Regexp
+	NfId                     string
+	GroupID                  string
+	RegisterIPv4             string
+	BindingIPv4              string
+	Url                      string
+	NrfUri                   string
+	UdmUeauUrl               string
+	UriScheme                models.UriScheme
+	Key                      string
+	PEM                      string
+	NfService                map[models.ServiceName]models.NfService
+	PlmnList                 []models.PlmnId
+	SBIPort                  int
+	EnableNrfCaching         bool
+	NrfCacheEvictionInterval time.Duration
 }
 
 type AusfUeContext struct {
@@ -102,6 +107,10 @@ func GetAusfUeContext(ref string) *AusfUeContext {
 	return ausfUeContext
 }
 
+func (context *AUSFContext) GetIPv4Uri() string {
+	return fmt.Sprintf("%s://%s:%d", context.UriScheme, context.RegisterIPv4, context.SBIPort)
+}
+
 func AddSuciSupiPairToMap(supiOrSuci string, supi string) {
 	newPair := new(SuciSupiMap)
 	newPair.SupiOrSuci = supiOrSuci
@@ -133,6 +142,6 @@ func GetSelf() *AUSFContext {
 	return &ausfContext
 }
 
-func (a *AUSFContext) GetSelfID() string {
-	return a.NfId
+func (context *AUSFContext) GetSelfID() string {
+	return context.NfId
 }

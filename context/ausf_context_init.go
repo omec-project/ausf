@@ -10,9 +10,9 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/google/uuid"
-
 	"github.com/omec-project/ausf/factory"
 	"github.com/omec-project/ausf/logger"
 	"github.com/omec-project/ausf/util"
@@ -82,6 +82,14 @@ func InitAusfContext(context *AUSFContext) {
 	roc := os.Getenv("MANAGED_BY_CONFIG_POD")
 	if roc != "true" {
 		context.PlmnList = append(context.PlmnList, configuration.PlmnSupportList...)
+	}
+	context.EnableNrfCaching = configuration.EnableNrfCaching
+	if configuration.EnableNrfCaching {
+		if configuration.NrfCacheEvictionInterval == 0 {
+			context.NrfCacheEvictionInterval = time.Duration(900) // 15 mins
+		} else {
+			context.NrfCacheEvictionInterval = time.Duration(configuration.NrfCacheEvictionInterval)
+		}
 	}
 
 	// context.NfService
