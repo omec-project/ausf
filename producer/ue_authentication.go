@@ -21,6 +21,7 @@ import (
 	"github.com/google/gopacket/layers"
 	ausf_context "github.com/omec-project/ausf/context"
 	"github.com/omec-project/ausf/logger"
+	stats "github.com/omec-project/ausf/metrics"
 	"github.com/omec-project/openapi/models"
 	"github.com/omec-project/util/httpwrapper"
 	"github.com/omec-project/util/ueauth"
@@ -88,8 +89,10 @@ func HandleUeAuthPostRequest(request *httpwrapper.Request) *httpwrapper.Response
 	respHeader.Set("Location", locationURI)
 
 	if response != nil {
+		stats.IncrementUeAuthStats(ausf_context.GetSelf().NfId, response.ServingNetworkName, string(response.AuthType), "ok")
 		return httpwrapper.NewResponse(http.StatusCreated, respHeader, response)
 	} else if problemDetails != nil {
+		stats.IncrementUeAuthStats(ausf_context.GetSelf().NfId, updateAuthenticationInfo.ServingNetworkName, "", problemDetails.Cause)
 		return httpwrapper.NewResponse(int(problemDetails.Status), nil, problemDetails)
 	}
 	problemDetails = &models.ProblemDetails{
