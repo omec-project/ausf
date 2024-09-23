@@ -274,7 +274,7 @@ func ConstructEapNoTypePkt(code radius.EapCode, pktID uint8) string {
 	return base64.StdEncoding.EncodeToString(b)
 }
 
-func getUdmUrl(nrfUri string, id string) string {
+func GetUdmUrl(nrfUri string, id string) string {
 	udmUrl := "https://localhost:29503" // default
 	Uenf, ok := ausf_context.GetSelf().UeNfProfile.Load(id)
 	if ok {

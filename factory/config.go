@@ -44,6 +44,7 @@ type Configuration struct {
 	PlmnSupportList          []models.PlmnId `yaml:"plmnSupportList,omitempty"`
 	EnableNrfCaching         bool            `yaml:"enableNrfCaching"`
 	NrfCacheEvictionInterval int             `yaml:"nrfCacheEvictionInterval,omitempty"`
+	EnableScaling            bool            `yaml:"enableScaling,omitempty"`
 }
 
 type Sbi struct {

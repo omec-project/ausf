@@ -83,6 +83,7 @@ func InitAusfContext(context *AUSFContext) {
 	if roc != "true" {
 		context.PlmnList = append(context.PlmnList, configuration.PlmnSupportList...)
 	}
+	context.EnableScaling = configuration.EnableScaling
 	context.EnableNrfCaching = configuration.EnableNrfCaching
 	if configuration.EnableNrfCaching {
 		if configuration.NrfCacheEvictionInterval == 0 {
