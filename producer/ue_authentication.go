@@ -89,7 +89,7 @@ func HandleUeAuthPostRequest(request *httpwrapper.Request) *httpwrapper.Response
 	respHeader.Set("Location", locationURI)
 
 	if response != nil {
-		stats.IncrementUeAuthStats(ausf_context.GetSelf().NfId, response.ServingNetworkName, string(response.AuthType), "ok")
+		stats.IncrementUeAuthStats(ausf_context.GetSelf().NfId, response.ServingNetworkName, string(response.AuthType), "AUTHORIZED")
 		return httpwrapper.NewResponse(http.StatusCreated, respHeader, response)
 	} else if problemDetails != nil {
 		stats.IncrementUeAuthStats(ausf_context.GetSelf().NfId, updateAuthenticationInfo.ServingNetworkName, "", problemDetails.Cause)
@@ -99,6 +99,7 @@ func HandleUeAuthPostRequest(request *httpwrapper.Request) *httpwrapper.Response
 		Status: http.StatusForbidden,
 		Cause:  "UNSPECIFIED",
 	}
+	stats.IncrementUeAuthStats(ausf_context.GetSelf().NfId, updateAuthenticationInfo.ServingNetworkName, "", problemDetails.Cause)
 	return httpwrapper.NewResponse(http.StatusForbidden, nil, problemDetails)
 }
 
