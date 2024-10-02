@@ -43,7 +43,7 @@ func GenerateRandomNumber() (uint8, error) {
 }
 
 func HandleEapAuthComfirmRequest(request *httpwrapper.Request) *httpwrapper.Response {
-	logger.Auth5gAkaComfirmLog.Infof("EapAuthComfirmRequest")
+	logger.Auth5gAkaComfirmLog.Infoln("EapAuthComfirmRequest")
 
 	updateEapSession := request.Body.(models.EapSession)
 	eapSessionID := request.Params["authCtxId"]
@@ -63,7 +63,7 @@ func HandleEapAuthComfirmRequest(request *httpwrapper.Request) *httpwrapper.Resp
 }
 
 func HandleAuth5gAkaComfirmRequest(request *httpwrapper.Request) *httpwrapper.Response {
-	logger.Auth5gAkaComfirmLog.Infof("Auth5gAkaComfirmRequest")
+	logger.Auth5gAkaComfirmLog.Infoln("Auth5gAkaComfirmRequest")
 	updateConfirmationData := request.Body.(models.ConfirmationData)
 	ConfirmationDataResponseID := request.Params["authCtxId"]
 
@@ -81,7 +81,7 @@ func HandleAuth5gAkaComfirmRequest(request *httpwrapper.Request) *httpwrapper.Re
 }
 
 func HandleUeAuthPostRequest(request *httpwrapper.Request) *httpwrapper.Response {
-	logger.UeAuthPostLog.Infof("HandleUeAuthPostRequest")
+	logger.UeAuthPostLog.Infoln("HandleUeAuthPostRequest")
 	updateAuthenticationInfo := request.Body.(models.AuthenticationInfo)
 
 	response, locationURI, problemDetails := UeAuthPostRequestProcedure(updateAuthenticationInfo)
@@ -122,7 +122,7 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 		logger.UeAuthPostLog.Infoln("403 forbidden: serving network NOT AUTHORIZED")
 		return nil, "", &problemDetails
 	}
-	logger.UeAuthPostLog.Infoln("Serving network authorized")
+	logger.UeAuthPostLog.Infoln("serving network authorized")
 
 	responseBody.ServingNetworkName = snName
 	authInfoReq.ServingNetworkName = snName
@@ -130,13 +130,13 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 	authInfoReq.AusfInstanceId = self.GetSelfID()
 
 	if updateAuthenticationInfo.ResynchronizationInfo != nil {
-		logger.UeAuthPostLog.Warningln("Auts: ", updateAuthenticationInfo.ResynchronizationInfo.Auts)
+		logger.UeAuthPostLog.Warnln("Auts:", updateAuthenticationInfo.ResynchronizationInfo.Auts)
 		ausfCurrentSupi := ausf_context.GetSupiFromSuciSupiMap(supiOrSuci)
-		logger.UeAuthPostLog.Warningln(ausfCurrentSupi)
+		logger.UeAuthPostLog.Warnln(ausfCurrentSupi)
 		ausfCurrentContext := ausf_context.GetAusfUeContext(ausfCurrentSupi)
-		logger.UeAuthPostLog.Warningln(ausfCurrentContext.Rand)
+		logger.UeAuthPostLog.Warnln(ausfCurrentContext.Rand)
 		updateAuthenticationInfo.ResynchronizationInfo.Rand = ausfCurrentContext.Rand
-		logger.UeAuthPostLog.Warningln("Rand: ", updateAuthenticationInfo.ResynchronizationInfo.Rand)
+		logger.UeAuthPostLog.Warnln("Rand:", updateAuthenticationInfo.ResynchronizationInfo.Rand)
 		authInfoReq.ResynchronizationInfo = updateAuthenticationInfo.ResynchronizationInfo
 	}
 
@@ -167,13 +167,13 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 	ausfUeContext.UdmUeauUrl = udmUrl
 	ausf_context.AddAusfUeContextToPool(ausfUeContext)
 
-	logger.UeAuthPostLog.Infof("Add SuciSupiPair (%s, %s) to map.\n", supiOrSuci, ueid)
+	logger.UeAuthPostLog.Infof("add SuciSupiPair (%s, %s) to map", supiOrSuci, ueid)
 	ausf_context.AddSuciSupiPairToMap(supiOrSuci, ueid)
 
 	locationURI := self.Url + "/nausf-auth/v1/ue-authentications/" + supiOrSuci
 	putLink := locationURI
 	if authInfoResult.AuthType == models.AuthType__5_G_AKA {
-		logger.UeAuthPostLog.Infoln("Use 5G AKA auth method")
+		logger.UeAuthPostLog.Infoln("use 5G AKA auth method")
 		putLink += "/5g-aka-confirmation"
 
 		// Derive HXRES* from XRES*
@@ -186,7 +186,7 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 		}
 		hxresStarAll := sha256.Sum256(hxresStarBytes)
 		hxresStar := hex.EncodeToString(hxresStarAll[16:]) // last 128 bits
-		logger.Auth5gAkaComfirmLog.Infof("XresStar = %x\n", authInfoResult.AuthenticationVector.XresStar)
+		logger.Auth5gAkaComfirmLog.Infof("XresStar = %x", authInfoResult.AuthenticationVector.XresStar)
 
 		// Derive Kseaf from Kausf
 		Kausf := authInfoResult.AuthenticationVector.Kausf
@@ -213,7 +213,7 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 
 		responseBody.Var5gAuthData = av5gAka
 	} else if authInfoResult.AuthType == models.AuthType_EAP_AKA_PRIME {
-		logger.UeAuthPostLog.Infoln("Use EAP-AKA' auth method")
+		logger.UeAuthPostLog.Infoln("use EAP-AKA' auth method")
 		putLink += "/eap-session"
 
 		identity := ueid
@@ -247,7 +247,7 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 		var eapPkt radius.EapPacket
 		randIdentifier, err := GenerateRandomNumber()
 		if err != nil {
-			logger.Auth5gAkaComfirmLog.Warnf("Generate random number failed: %+v", err)
+			logger.Auth5gAkaComfirmLog.Warnf("generate random number failed: %+v", err)
 		}
 		eapPkt.Identifier = randIdentifier
 		eapPkt.Code = radius.EapCode(1)
@@ -320,7 +320,7 @@ func Auth5gAkaComfirmRequestProcedure(updateConfirmationData models.Confirmation
 	responseBody.AuthResult = models.AuthResult_FAILURE
 
 	if !ausf_context.CheckIfSuciSupiPairExists(ConfirmationDataResponseID) {
-		logger.Auth5gAkaComfirmLog.Infof("supiSuciPair does not exist, confirmation failed (queried by %s)\n",
+		logger.Auth5gAkaComfirmLog.Infof("supiSuciPair does not exist, confirmation failed (queried by %s)",
 			ConfirmationDataResponseID)
 		var problemDetails models.ProblemDetails
 		problemDetails.Cause = USER_NOT_FOUND_ERROR
@@ -330,7 +330,7 @@ func Auth5gAkaComfirmRequestProcedure(updateConfirmationData models.Confirmation
 
 	currentSupi := ausf_context.GetSupiFromSuciSupiMap(ConfirmationDataResponseID)
 	if !ausf_context.CheckIfAusfUeContextExists(currentSupi) {
-		logger.Auth5gAkaComfirmLog.Infof("SUPI does not exist, confirmation failed (queried by %s)\n", currentSupi)
+		logger.Auth5gAkaComfirmLog.Infof("SUPI does not exist, confirmation failed (queried by %s)", currentSupi)
 		var problemDetails models.ProblemDetails
 		problemDetails.Cause = USER_NOT_FOUND_ERROR
 		problemDetails.Status = http.StatusBadRequest
@@ -341,7 +341,7 @@ func Auth5gAkaComfirmRequestProcedure(updateConfirmationData models.Confirmation
 	servingNetworkName := ausfCurrentContext.ServingNetworkName
 
 	// Compare the received RES* with the stored XRES*
-	logger.Auth5gAkaComfirmLog.Infof("res*: %x\nXres*: %x\n", updateConfirmationData.ResStar, ausfCurrentContext.XresStar)
+	logger.Auth5gAkaComfirmLog.Infof("res*: %x, Xres*: %x", updateConfirmationData.ResStar, ausfCurrentContext.XresStar)
 	if strings.Compare(updateConfirmationData.ResStar, ausfCurrentContext.XresStar) == 0 {
 		ausfCurrentContext.AuthStatus = models.AuthResult_SUCCESS
 		responseBody.AuthResult = models.AuthResult_SUCCESS
@@ -426,7 +426,7 @@ func EapAuthComfirmRequestProcedure(updateEapSession models.EapSession, eapSessi
 			failEapAkaNoti := ConstructFailEapAkaNotification(eapContent.Id)
 			responseBody.EapPayload = failEapAkaNoti
 		} else if XRES == string(RES) { // decodeOK && XRES == res, auth success
-			logger.EapAuthComfirmLog.Infoln("Correct RES value, EAP-AKA' auth succeed")
+			logger.EapAuthComfirmLog.Infoln("correct RES value, EAP-AKA' auth succeed")
 			responseBody.AuthResult = models.AuthResult_SUCCESS
 			eapSuccPkt := ConstructEapNoTypePkt(radius.EapCodeSuccess, eapContent.Id)
 			responseBody.EapPayload = eapSuccPkt

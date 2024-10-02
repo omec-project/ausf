@@ -20,7 +20,7 @@ import (
 var NRFCacheRemoveNfProfileFromNrfCache = nrfCache.RemoveNfProfileFromNrfCache
 
 func HandleNfSubscriptionStatusNotify(request *httpwrapper.Request) *httpwrapper.Response {
-	logger.ProducerLog.Traceln("handle NF Status Notify")
+	logger.ProducerLog.Debugln("handle NF Status Notify")
 
 	notificationData := request.Body.(models.NotificationData)
 
@@ -51,7 +51,7 @@ func NfSubscriptionStatusNotifyProcedure(notificationData models.NotificationDat
 	if notificationData.Event == models.NotificationEventType_DEREGISTERED {
 		if ausfContext.GetSelf().EnableNrfCaching {
 			ok := NRFCacheRemoveNfProfileFromNrfCache(nfInstanceId)
-			logger.ProducerLog.Tracef("nfinstance %v deleted from cache: %v", nfInstanceId, ok)
+			logger.ProducerLog.Debugf("nfinstance %v deleted from cache: %v", nfInstanceId, ok)
 		}
 		if subscriptionId, ok := ausfContext.GetSelf().NfStatusSubscriptions.Load(nfInstanceId); ok {
 			logger.ConsumerLog.Debugf("SubscriptionId of nfInstance %v is %v", nfInstanceId, subscriptionId.(string))

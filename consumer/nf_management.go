@@ -73,15 +73,15 @@ var SendRegisterNFInstance = func(nrfUri, nfInstanceId string, profile models.Nf
 			retrieveNfInstanceId = resourceUri[strings.LastIndex(resourceUri, "/")+1:]
 			return prof, resourceNrfUri, retrieveNfInstanceId, nil
 		} else {
-			fmt.Println(fmt.Errorf("handler returned wrong status code %d", status))
-			fmt.Println(fmt.Errorf("NRF return wrong status code %d", status))
+			logger.ConsumerLog.Errorf("handler returned wrong status code %d", status)
+			logger.ConsumerLog.Errorf("NRF return wrong status code %d", status)
 		}
 	}
 	return prof, "", "", nil
 }
 
 func SendDeregisterNFInstance() (*models.ProblemDetails, error) {
-	logger.AppLog.Infof("Send Deregister NFInstance")
+	logger.AppLog.Infoln("send Deregister NFInstance")
 
 	ausfSelf := ausfContext.GetSelf()
 	// Set client and set url
@@ -109,7 +109,7 @@ func SendDeregisterNFInstance() (*models.ProblemDetails, error) {
 }
 
 var SendUpdateNFInstance = func(patchItem []models.PatchItem) (nfProfile models.NfProfile, problemDetails *models.ProblemDetails, err error) {
-	logger.ConsumerLog.Debugf("Send Update NFInstance")
+	logger.ConsumerLog.Debugln("send Update NFInstance")
 
 	ausfSelf := ausfContext.GetSelf()
 	configuration := Nnrf_NFManagement.NewConfiguration()
@@ -139,7 +139,7 @@ var SendUpdateNFInstance = func(patchItem []models.PatchItem) (nfProfile models.
 }
 
 var SendCreateSubscription = func(nrfUri string, nrfSubscriptionData models.NrfSubscriptionData) (nrfSubData models.NrfSubscriptionData, problemDetails *models.ProblemDetails, err error) {
-	logger.ConsumerLog.Debugf("send Create Subscription")
+	logger.ConsumerLog.Debugln("send Create Subscription")
 
 	// Set client and set url
 	configuration := Nnrf_NFManagement.NewConfiguration()

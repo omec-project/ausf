@@ -7,7 +7,6 @@
 package context
 
 import (
-	"fmt"
 	"os"
 	"strconv"
 	"time"
@@ -31,7 +30,7 @@ func TestInit() {
 
 func InitAusfContext(context *AUSFContext) {
 	config := factory.AusfConfig
-	logger.InitLog.Infof("ausfconfig Info: Version[%s] Description[%s]\n", config.Info.Version, config.Info.Description)
+	logger.InitLog.Infof("ausfconfig Info: Version[%s] Description[%s]", config.Info.Version, config.Info.Description)
 
 	configuration := config.Configuration
 	sbi := configuration.Sbi
@@ -68,11 +67,11 @@ func InitAusfContext(context *AUSFContext) {
 
 		context.BindingIPv4 = os.Getenv(sbi.BindingIPv4)
 		if context.BindingIPv4 != "" {
-			logger.InitLog.Info("Parsing ServerIPv4 address from ENV Variable.")
+			logger.InitLog.Infoln("parsing ServerIPv4 address from ENV Variable")
 		} else {
 			context.BindingIPv4 = sbi.BindingIPv4
 			if context.BindingIPv4 == "" {
-				logger.InitLog.Warn("Error parsing ServerIPv4 address as string. Using the 0.0.0.0 address as default.")
+				logger.InitLog.Warnln("error parsing ServerIPv4 address as string. Using the 0.0.0.0 address as default")
 				context.BindingIPv4 = "0.0.0.0"
 			}
 		}
@@ -95,7 +94,7 @@ func InitAusfContext(context *AUSFContext) {
 	// context.NfService
 	context.NfService = make(map[models.ServiceName]models.NfService)
 	AddNfServices(&context.NfService, &config, context)
-	fmt.Println("ausf context = ", context)
+	logger.ContextLog.Infoln("ausf context:", context)
 }
 
 func AddNfServices(serviceMap *map[models.ServiceName]models.NfService, config *factory.Config, context *AUSFContext) {
