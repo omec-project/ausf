@@ -17,8 +17,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/sirupsen/logrus"
 	"github.com/urfave/cli"
+	"go.uber.org/zap"
 
 	"github.com/omec-project/ausf/logger"
 	"github.com/omec-project/ausf/service"
@@ -26,7 +26,7 @@ import (
 
 var AUSF = &service.AUSF{}
 
-var appLog *logrus.Entry
+var appLog *zap.SugaredLogger
 
 func init() {
 	appLog = logger.AppLog
@@ -35,7 +35,7 @@ func init() {
 func main() {
 	app := cli.NewApp()
 	app.Name = "ausf"
-	fmt.Print(app.Name, "\n")
+	appLog.Infoln(app.Name)
 	app.Usage = "-free5gccfg common configuration file -ausfcfg ausf configuration file"
 	app.Action = action
 	app.Flags = AUSF.GetCliCmd()
