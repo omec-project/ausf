@@ -139,7 +139,6 @@ func updateConfig(client grpcClient.ConfClient, ausf *AUSF) {
 				configChannel = client.PublishOnConfigChange(true, stream)
 				go ausf.updateConfig(configChannel)
 			}
-
 		} else {
 			client, err = grpcClient.ConnectToConfigServer(factory.AusfConfig.Configuration.WebuiUri)
 			if err != nil {
