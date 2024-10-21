@@ -78,8 +78,7 @@ func InitAusfContext(context *AUSFContext) {
 	}
 
 	context.Url = string(context.UriScheme) + "://" + context.RegisterIPv4 + ":" + strconv.Itoa(context.SBIPort)
-	roc := os.Getenv("MANAGED_BY_CONFIG_POD")
-	if roc != "true" {
+	if os.Getenv("MANAGED_BY_CONFIG_POD") != "true" {
 		context.PlmnList = append(context.PlmnList, configuration.PlmnSupportList...)
 	}
 	context.EnableNrfCaching = configuration.EnableNrfCaching
