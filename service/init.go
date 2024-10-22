@@ -100,7 +100,7 @@ func (ausf *AUSF) Initialize(c *cli.Context) error {
 		logger.InitLog.Infoln("MANAGED_BY_CONFIG_POD is true")
 		client, err := grpcClient.ConnectToConfigServer(factory.AusfConfig.Configuration.WebuiUri)
 		if err != nil {
-			go updateConfig(client, ausf)
+			go manageGrpcClient(client, ausf)
 		}
 		return err
 	} else {
@@ -112,9 +112,9 @@ func (ausf *AUSF) Initialize(c *cli.Context) error {
 	return nil
 }
 
-// updateConfig connects the config pod GRPC server and subscribes the config changes
+// manageGrpcClient manages the GRPC client. It connects to config pod GRPC server and subscribes the config changes
 // then updates AUSF configuration
-func updateConfig(client grpcClient.ConfClient, ausf *AUSF) {
+func manageGrpcClient(client grpcClient.ConfClient, ausf *AUSF) {
 	var stream protos.ConfigService_NetworkSliceSubscribeClient
 	var err error
 	var configChannel chan *protos.NetworkSliceResponse
