@@ -30,11 +30,12 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "ausf"
 	logger.AppLog.Infoln(app.Name)
-	app.Usage = "-free5gccfg common configuration file -ausfcfg ausf configuration file"
+	app.Usage = "Authentication Server Function"
+	app.UsageText = "ausf -cfg <ausf_config_file.conf>"
 	app.Action = action
 	app.Flags = AUSF.GetCliCmd()
 	if err := app.Run(os.Args); err != nil {
-		logger.AppLog.Errorf("AUSF Run error: %v", err)
+		logger.AppLog.Fatalf("AUSF run error: %v", err)
 	}
 }
 

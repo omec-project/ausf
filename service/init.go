@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"sync"
 	"syscall"
 	"time"
@@ -24,14 +25,12 @@ import (
 	"github.com/omec-project/ausf/logger"
 	"github.com/omec-project/ausf/metrics"
 	"github.com/omec-project/ausf/ueauthentication"
-	"github.com/omec-project/ausf/util"
 	grpcClient "github.com/omec-project/config5g/proto/client"
 	protos "github.com/omec-project/config5g/proto/sdcoreConfig"
 	"github.com/omec-project/openapi/models"
 	nrfCache "github.com/omec-project/openapi/nrfcache"
 	"github.com/omec-project/util/http2_util"
 	utilLogger "github.com/omec-project/util/logger"
-	"github.com/omec-project/util/path_util"
 	"github.com/urfave/cli"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -42,7 +41,7 @@ type AUSF struct{}
 type (
 	// Config information.
 	Config struct {
-		ausfcfg string
+		cfg string
 	}
 )
 
@@ -50,12 +49,9 @@ var config Config
 
 var ausfCLi = []cli.Flag{
 	cli.StringFlag{
-		Name:  "free5gccfg",
-		Usage: "common config file",
-	},
-	cli.StringFlag{
-		Name:  "ausfcfg",
-		Usage: "config file",
+		Name:     "cfg",
+		Usage:    "ausf config file",
+		Required: true,
 	},
 }
 
@@ -76,18 +72,17 @@ func (*AUSF) GetCliCmd() (flags []cli.Flag) {
 
 func (ausf *AUSF) Initialize(c *cli.Context) error {
 	config = Config{
-		ausfcfg: c.String("ausfcfg"),
+		cfg: c.String("cfg"),
 	}
 
-	if config.ausfcfg != "" {
-		if err := factory.InitConfigFactory(config.ausfcfg); err != nil {
-			return err
-		}
-	} else {
-		DefaultAusfConfigPath := path_util.Free5gcPath("free5gc/config/ausfcfg.yaml")
-		if err := factory.InitConfigFactory(DefaultAusfConfigPath); err != nil {
-			return err
-		}
+	absPath, err := filepath.Abs(config.cfg)
+	if err != nil {
+		logger.CfgLog.Errorln(err)
+		return err
+	}
+
+	if err := factory.InitConfigFactory(absPath); err != nil {
+		return err
 	}
 
 	ausf.setLogLevel()
@@ -95,6 +90,8 @@ func (ausf *AUSF) Initialize(c *cli.Context) error {
 	if err := factory.CheckConfigVersion(); err != nil {
 		return err
 	}
+
+	factory.AusfConfig.CfgLocation = absPath
 
 	if os.Getenv("MANAGED_BY_CONFIG_POD") == "true" {
 		logger.InitLog.Infoln("MANAGED_BY_CONFIG_POD is true")
@@ -262,8 +259,6 @@ func (ausf *AUSF) Start() {
 	context.Init()
 	self := context.GetSelf()
 
-	ausfLogPath := util.AusfLogPath
-
 	addr := fmt.Sprintf("%s:%d", self.BindingIPv4, self.SBIPort)
 
 	if self.EnableNrfCaching {
@@ -281,7 +276,8 @@ func (ausf *AUSF) Start() {
 		os.Exit(0)
 	}()
 
-	server, err := http2_util.NewServer(addr, ausfLogPath, router)
+	sslLog := filepath.Dir(factory.AusfConfig.CfgLocation) + "/sslkey.log"
+	server, err := http2_util.NewServer(addr, sslLog, router)
 	if server == nil {
 		logger.InitLog.Errorf("initialize HTTP server failed: %v", err)
 		return
@@ -304,10 +300,10 @@ func (ausf *AUSF) Start() {
 }
 
 func (ausf *AUSF) Exec(c *cli.Context) error {
-	logger.InitLog.Debugln("args:", c.String("ausfcfg"))
+	logger.InitLog.Debugln("args:", c.String("cfg"))
 	args := ausf.FilterCli(c)
 	logger.InitLog.Debugln("filter:", args)
-	command := exec.Command("./ausf", args...)
+	command := exec.Command("ausf", args...)
 
 	stdout, err := command.StdoutPipe()
 	if err != nil {

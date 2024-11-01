@@ -14,19 +14,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/omec-project/ausf/factory"
 	"github.com/omec-project/ausf/logger"
-	"github.com/omec-project/ausf/util"
 	"github.com/omec-project/openapi/models"
-	"github.com/omec-project/util/path_util"
 )
-
-func TestInit() {
-	// load config
-	DefaultAusfConfigPath := path_util.Free5gcPath("free5gc/config/ausfcfg.yaml")
-	if err := factory.InitConfigFactory(DefaultAusfConfigPath); err != nil {
-		panic(err)
-	}
-	Init()
-}
 
 func InitAusfContext(context *AUSFContext) {
 	config := factory.AusfConfig
@@ -41,8 +30,6 @@ func InitAusfContext(context *AUSFContext) {
 	context.UriScheme = models.UriScheme(configuration.Sbi.Scheme) // default uri scheme
 	context.RegisterIPv4 = factory.AUSF_DEFAULT_IPV4               // default localhost
 	context.SBIPort = factory.AUSF_DEFAULT_PORT_INT                // default port
-	context.Key = util.AusfKeyPath                                 // default key path
-	context.PEM = util.AusfPemPath                                 // default PEM path
 	if sbi != nil {
 		if sbi.RegisterIPv4 != "" {
 			context.RegisterIPv4 = sbi.RegisterIPv4
