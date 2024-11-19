@@ -356,7 +356,23 @@ func (ausf *AUSF) Terminate() {
 		logger.InitLog.Infoln("deregister from NRF successfully")
 	}
 
-	logger.InitLog.Infoln("AUSF terminated")
+	ausfSelf := context.GetSelf()
+	ausfSelf.NfStatusSubscriptions.Range(func(nfInstanceId, v interface{}) bool {
+		if subscriptionId, ok := ausfSelf.NfStatusSubscriptions.Load(nfInstanceId); ok {
+			logger.InitLog.Debugf("SubscriptionId is %v", subscriptionId.(string))
+			problemDetails, err := consumer.SendRemoveSubscription(subscriptionId.(string))
+			if problemDetails != nil {
+				logger.InitLog.Errorf("Remove NF Subscription Failed Problem[%+v]", problemDetails)
+			} else if err != nil {
+				logger.InitLog.Errorf("Remove NF Subscription Error[%+v]", err)
+			} else {
+				logger.InitLog.Infoln("[AUSF] Remove NF Subscription successful")
+			}
+		}
+		return true
+	})
+	logger.InitLog.Infof("AUSF terminated")
+
 }
 
 func (ausf *AUSF) StartKeepAliveTimer(nfProfile models.NfProfile) {
