@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2024 Intel Corporation
 // Copyright 2019 free5GC.org
 //
 // SPDX-License-Identifier: Apache-2.0
@@ -18,7 +19,6 @@ import (
 	"os"
 
 	"github.com/urfave/cli"
-	"go.uber.org/zap"
 
 	"github.com/omec-project/ausf/logger"
 	"github.com/omec-project/ausf/service"
@@ -26,21 +26,16 @@ import (
 
 var AUSF = &service.AUSF{}
 
-var appLog *zap.SugaredLogger
-
-func init() {
-	appLog = logger.AppLog
-}
-
 func main() {
 	app := cli.NewApp()
 	app.Name = "ausf"
-	appLog.Infoln(app.Name)
-	app.Usage = "-free5gccfg common configuration file -ausfcfg ausf configuration file"
+	logger.AppLog.Infoln(app.Name)
+	app.Usage = "Authentication Server Function"
+	app.UsageText = "ausf -cfg <ausf_config_file.conf>"
 	app.Action = action
 	app.Flags = AUSF.GetCliCmd()
 	if err := app.Run(os.Args); err != nil {
-		appLog.Errorf("AUSF Run error: %v", err)
+		logger.AppLog.Fatalf("AUSF run error: %v", err)
 	}
 }
 
