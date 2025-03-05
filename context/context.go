@@ -35,6 +35,8 @@ type AUSFContext struct {
 	SBIPort                  int
 	EnableNrfCaching         bool
 	NrfCacheEvictionInterval time.Duration
+	EnableScaling            bool
+	UeNfProfile              sync.Map // map[Supi]models.UeNfProfile
 }
 
 type AusfUeContext struct {
