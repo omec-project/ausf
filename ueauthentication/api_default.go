@@ -18,7 +18,6 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-
 	"github.com/omec-project/ausf/logger"
 	"github.com/omec-project/ausf/producer"
 	"github.com/omec-project/openapi"

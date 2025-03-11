@@ -20,7 +20,6 @@ import (
 
 	"github.com/antihax/optional"
 	"github.com/bronze1man/radius"
-
 	"github.com/omec-project/ausf/consumer"
 	ausf_context "github.com/omec-project/ausf/context"
 	"github.com/omec-project/ausf/logger"

@@ -27,10 +27,12 @@ import (
 	"github.com/omec-project/util/ueauth"
 )
 
-const UPSTREAM_SERVER_ERROR = "UPSTREAM_SERVER_ERROR"
-const USER_NOT_FOUND_ERROR = "USER_NOT_FOUND"
-const SERVING_NETWORK_NOT_AUTHORIZED_ERROR = "SERVING_NETWORK_NOT_AUTHORIZED"
-const AV_GENERATION_PROBLEM_ERROR = "AV_GENERATION_PROBLEM"
+const (
+	UPSTREAM_SERVER_ERROR                = "UPSTREAM_SERVER_ERROR"
+	USER_NOT_FOUND_ERROR                 = "USER_NOT_FOUND"
+	SERVING_NETWORK_NOT_AUTHORIZED_ERROR = "SERVING_NETWORK_NOT_AUTHORIZED"
+	AV_GENERATION_PROBLEM_ERROR          = "AV_GENERATION_PROBLEM"
+)
 
 // Generates a random int between 0 and 255
 func GenerateRandomNumber() (uint8, error) {
@@ -107,7 +109,8 @@ func HandleUeAuthPostRequest(request *httpwrapper.Request) *httpwrapper.Response
 //
 //	response *models.UeAuthenticationCtx, locationURI string, problemDetails *models.ProblemDetails) {
 func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationInfo) (*models.UeAuthenticationCtx,
-	string, *models.ProblemDetails) {
+	string, *models.ProblemDetails,
+) {
 	var responseBody models.UeAuthenticationCtx
 	var authInfoReq models.AuthenticationInfoRequest
 
@@ -314,7 +317,8 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 //  problemDetails *models.ProblemDetails) {
 
 func Auth5gAkaComfirmRequestProcedure(updateConfirmationData models.ConfirmationData,
-	ConfirmationDataResponseID string) (*models.ConfirmationDataResponse, *models.ProblemDetails) {
+	ConfirmationDataResponseID string,
+) (*models.ConfirmationDataResponse, *models.ProblemDetails) {
 	var responseBody models.ConfirmationDataResponse
 	success := false
 	responseBody.AuthResult = models.AuthResult_FAILURE
@@ -371,7 +375,8 @@ func Auth5gAkaComfirmRequestProcedure(updateConfirmationData models.Confirmation
 
 // return response, problemDetails
 func EapAuthComfirmRequestProcedure(updateEapSession models.EapSession, eapSessionID string) (*models.EapSession,
-	*models.ProblemDetails) {
+	*models.ProblemDetails,
+) {
 	var responseBody models.EapSession
 
 	if !ausf_context.CheckIfSuciSupiPairExists(eapSessionID) {

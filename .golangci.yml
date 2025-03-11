@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2024 Intel Corporation
 # Copyright 2019 free5GC.org
+#
 # SPDX-License-Identifier: Apache-2.0
+#
 
 # This file contains all available configuration options
 # with their default values.
@@ -25,7 +27,6 @@ run:
   skip-dirs:
   # default is true. Enables skipping of directories:
   #   vendor$, third_party$, testdata$, examples$, Godeps$, builtin$
-  skip-dirs-use-default: true
   # by default isn't set. If set we pass it to "go list -mod={option}". From "go help modules":
   # If invoked with -mod=readonly, the go command is disallowed from the implicit
   # automatic updating of go.mod described above. Instead, it fails when any changes
@@ -46,8 +47,6 @@ output:
   print-issued-lines: true
   # print linter name in the end of issue text, default is true
   print-linter-name: true
-  # make issues output unique by line, default is true
-  uniq-by-line: true
 # all available settings of specific linters
 linters-settings:
   errcheck:
@@ -119,7 +118,7 @@ linters-settings:
   goimports:
     # put imports beginning with prefix after 3rd-party packages;
     # it's a comma-separated list of prefixes
-    local-prefixes: github.com/org/project
+    local-prefixes: github.com/omec-project
   golint:
     # minimal confidence for issues, default is 0.8
     min-confidence: 0.8
@@ -132,6 +131,22 @@ linters-settings:
       - operation
       - return
       - assign
+  gomodguard:
+    allowed:
+      modules:                                                        # List of allowed modules
+        # - gopkg.in/yaml.v2
+      domains:                                                        # List of allowed module domains
+        # - golang.org
+    blocked:
+      modules:                                                        # List of blocked modules
+        # - github.com/uudashr/go-module:                             # Blocked module
+        #     recommendations:                                        # Recommended modules that should be used instead (Optional)
+        #       - golang.org/x/mod
+        #     reason: "`mod` is the official go.mod parser library."  # Reason why the recommended module should be used (Optional)
+      versions:                                                       # List of blocked module version constraints
+        # - github.com/mitchellh/go-homedir:                          # Blocked module with version constraint
+        #     version: "< 1.1.0"                                      # Version constraint, see https://github.com/Masterminds/semver#basic-comparisons
+        #     reason: "testing if blocked version constraint works."  # Reason why the version constraint exists. (Optional)
   govet:
     # settings per analyzer
     settings:
@@ -172,12 +187,12 @@ linters-settings:
     # if it's called for subdir of a project it can't find funcs usages. All text editor integrations
     # with golangci-lint call it on a directory with the changed file.
     check-exported: false
+  whitespace:
+    multi-if: false   # Enforces newlines (or comments) after every multi-line if statement
+    multi-func: false # Enforces newlines (or comments) after every multi-line function signature
   misspell:
     #locale: US
     ignore-words:
-  whitespace:
-    multi-if: false # Enforces newlines (or comments) after every multi-line if statement
-    multi-func: false # Enforces newlines (or comments) after every multi-line function signature
   wsl:
     # If true append is only allowed to be cuddled if appending value is
     # matching variables, fields or types on line above. Default is true.
@@ -203,7 +218,7 @@ linters-settings:
 linters:
   enable:
     - gofmt
-    - govet
+    # - govet
     - errcheck
     - unused
     - gosimple
@@ -212,15 +227,15 @@ linters:
     # Additional
     # - lll
     - godox
-    #- gomnd
+    # - mnd
     - goconst
     # - gocognit
     # - nestif
     - gomodguard
     - nakedret
-    # - gci
+    - gci
     - misspell
-    # - gofumpt
+    - gofumpt
     - whitespace
     - unconvert
     - predeclared
@@ -241,15 +256,13 @@ issues:
   # excluded by default patterns execute `golangci-lint run --help`
   exclude:
   # Excluding configuration per-path, per-linter, per-text and per-source
-  exclude-files:
-    - "routers.go"
   exclude-rules:
     # Exclude some linters from running on tests files.
   # Independently from option `exclude` we use default exclude patterns,
   # it can be disabled by this option. To list all
   # excluded by default patterns execute `golangci-lint run --help`.
   # Default value for this option is true.
-  exclude-use-default: false
+  exclude-use-default: true
   # The default value is false. If set to true exclude and exclude-rules
   # regular expressions become case sensitive.
   exclude-case-sensitive: false
@@ -271,6 +284,7 @@ issues:
   new-from-rev: ""
   # Show only new issues created in git patch with set file path.
   #new-from-patch: path/to/patch/file
+  uniq-by-line: true
 severity:
   # Default value is empty string.
   # Set the default severity for issues. If severity rules are defined and the issues

@@ -13,9 +13,8 @@ import (
 	"fmt"
 	"os"
 
-	"gopkg.in/yaml.v2"
-
 	"github.com/omec-project/ausf/logger"
+	"gopkg.in/yaml.v2"
 )
 
 var AusfConfig Config
