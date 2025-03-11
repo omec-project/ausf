@@ -11,7 +11,6 @@ import (
 
 func TestGenerateRandomNumber(t *testing.T) {
 	value, err := producer.GenerateRandomNumber()
-
 	if err != nil {
 		t.Fatalf("GenerateRandomNumber() failed: %s", err)
 	}

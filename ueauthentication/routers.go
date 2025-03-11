@@ -19,7 +19,6 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-
 	"github.com/omec-project/ausf/logger"
 	utilLogger "github.com/omec-project/util/logger"
 )

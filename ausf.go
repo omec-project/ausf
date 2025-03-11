@@ -18,10 +18,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/urfave/cli"
-
 	"github.com/omec-project/ausf/logger"
 	"github.com/omec-project/ausf/service"
+	"github.com/urfave/cli"
 )
 
 var AUSF = &service.AUSF{}

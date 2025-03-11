@@ -369,7 +369,7 @@ func (ausf *AUSF) StartKeepAliveTimer(nfProfile models.NfProfile) {
 		nfProfile.HeartBeatTimer = 60
 	}
 	logger.InitLog.Infof("started KeepAlive Timer: %v sec", nfProfile.HeartBeatTimer)
-	//AfterFunc starts timer and waits for KeepAliveTimer to elapse and then calls ausf.UpdateNF function
+	// AfterFunc starts timer and waits for KeepAliveTimer to elapse and then calls ausf.UpdateNF function
 	KeepAliveTimer = time.AfterFunc(time.Duration(nfProfile.HeartBeatTimer)*time.Second, ausf.UpdateNF)
 }
 
@@ -389,7 +389,7 @@ func (ausf *AUSF) BuildAndSendRegisterNFInstance() (models.NfProfile, error) {
 		return profile, err
 	}
 	logger.InitLog.Infof("AUSF Profile Registering to NRF: %v", profile)
-	//Indefinite attempt to register until success
+	// Indefinite attempt to register until success
 	profile, _, self.NfId, err = consumer.SendRegisterNFInstance(self.NrfUri, self.NfId, profile)
 	return profile, err
 }
@@ -402,7 +402,7 @@ func (ausf *AUSF) UpdateNF() {
 		logger.InitLog.Warnln("KeepAlive timer has been stopped")
 		return
 	}
-	//setting default value 30 sec
+	// setting default value 30 sec
 	var heartBeatTimer int32 = 60
 	pitem := models.PatchItem{
 		Op:    "replace",
@@ -414,10 +414,10 @@ func (ausf *AUSF) UpdateNF() {
 	nfProfile, problemDetails, err := consumer.SendUpdateNFInstance(patchItem)
 	if problemDetails != nil {
 		logger.InitLog.Errorf("AUSF update to NRF ProblemDetails[%v]", problemDetails)
-		//5xx response from NRF, 404 Not Found, 400 Bad Request
+		// 5xx response from NRF, 404 Not Found, 400 Bad Request
 		if (problemDetails.Status/100) == 5 ||
 			problemDetails.Status == 404 || problemDetails.Status == 400 {
-			//register with NRF full profile
+			// register with NRF full profile
 			nfProfile, err = ausf.BuildAndSendRegisterNFInstance()
 			if err != nil {
 				logger.InitLog.Errorf("AUSF register to NRF Error[%s]", err.Error())
@@ -436,7 +436,7 @@ func (ausf *AUSF) UpdateNF() {
 		heartBeatTimer = nfProfile.HeartBeatTimer
 	}
 	logger.InitLog.Debugf("restarted KeepAlive Timer: %v sec", heartBeatTimer)
-	//restart timer with received HeartBeatTimer value
+	// restart timer with received HeartBeatTimer value
 	KeepAliveTimer = time.AfterFunc(time.Duration(heartBeatTimer)*time.Second, ausf.UpdateNF)
 }
 
@@ -454,7 +454,7 @@ func (ausf *AUSF) RegisterNF() {
 			if err != nil {
 				logger.InitLog.Errorf("AUSF register to NRF Error[%s]", err.Error())
 			} else {
-				//stop keepAliveTimer if its running
+				// stop keepAliveTimer if its running
 				ausf.StartKeepAliveTimer(prof)
 				logger.CfgLog.Infoln("sent Register NF Instance with updated profile")
 			}
