@@ -2,8 +2,6 @@
 # Copyright 2023 Canonical Ltd.
 # Copyright 2024 Intel Corporation
 
-name: Main workflow
-
 on:
   pull_request:
     branches:
