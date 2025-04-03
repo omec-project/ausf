@@ -204,7 +204,7 @@ func (ausf *AUSF) updateConfig(commChannel chan *protos.NetworkSliceResponse) bo
 			logger.GrpcLog.Infoln("network Slice Name", ns.Name)
 			if ns.Site != nil {
 				temp := models.PlmnId{}
-				var found bool = false
+				found := false
 				logger.GrpcLog.Infoln("network slice has site name present")
 				site := ns.Site
 				logger.GrpcLog.Infoln("site name", site.SiteName)
@@ -290,9 +290,10 @@ func (ausf *AUSF) Start() {
 	}
 
 	serverScheme := factory.AusfConfig.Configuration.Sbi.Scheme
-	if serverScheme == "http" {
+	switch serverScheme {
+	case "http":
 		err = server.ListenAndServe()
-	} else if serverScheme == "https" {
+	case "https":
 		err = server.ListenAndServeTLS(self.PEM, self.Key)
 	}
 
