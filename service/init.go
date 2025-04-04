@@ -295,6 +295,9 @@ func (ausf *AUSF) Start() {
 		err = server.ListenAndServe()
 	case "https":
 		err = server.ListenAndServeTLS(self.PEM, self.Key)
+	default:
+		logger.InitLog.Fatalf("HTTP server setup failed: invalid server scheme %+v", serverScheme)
+		return
 	}
 
 	if err != nil {
