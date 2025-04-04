@@ -218,14 +218,15 @@ func decodeResMac(packetData []byte, wholePacket []byte, Kautn string) ([]byte, 
 		attributeLength = int(uint(dataArray[1+i])) * 4
 		attributeType = int(uint(dataArray[0+i]))
 
-		if attributeType == ausf_context.AT_RES_ATTRIBUTE {
+		switch attributeType {
+		case ausf_context.AT_RES_ATTRIBUTE:
 			logger.EapAuthComfirmLog.Infoln("Detect AT_RES attribute")
 			detectRes = true
 			resLength := int(uint(dataArray[3+i]) | uint(dataArray[2+i])<<8)
 			RES = dataArray[4+i : 4+i+attributeLength-4]
 			byteRes := padZeros(RES, resLength)
 			RES = byteRes
-		} else if attributeType == ausf_context.AT_MAC_ATTRIBUTE {
+		case ausf_context.AT_MAC_ATTRIBUTE:
 			logger.EapAuthComfirmLog.Infoln("Detect AT_MAC attribute")
 			detectMac = true
 			macStr := string(dataArray[4+i : 20+i])
@@ -235,7 +236,7 @@ func decodeResMac(packetData []byte, wholePacket []byte, Kautn string) ([]byte, 
 			} else {
 				logger.EapAuthComfirmLog.Infoln("check MAC integrity failed")
 			}
-		} else {
+		default:
 			logger.EapAuthComfirmLog.Infof("Detect unknown attribute with type %d\n", attributeType)
 		}
 	}
@@ -315,12 +316,13 @@ func sendAuthResultToUDM(id string, authType models.AuthType, success bool, serv
 }
 
 func logConfirmFailureAndInformUDM(id string, authType models.AuthType, servingNetworkName, errStr, udmUrl string) {
-	if authType == models.AuthType__5_G_AKA {
+	switch authType {
+	case models.AuthType__5_G_AKA:
 		logger.Auth5gAkaComfirmLog.Infoln(errStr)
 		if sendErr := sendAuthResultToUDM(id, authType, false, "", udmUrl); sendErr != nil {
 			logger.Auth5gAkaComfirmLog.Infoln(sendErr.Error())
 		}
-	} else if authType == models.AuthType_EAP_AKA_PRIME {
+	case models.AuthType_EAP_AKA_PRIME:
 		logger.EapAuthComfirmLog.Infoln(errStr)
 		if sendErr := sendAuthResultToUDM(id, authType, false, "", udmUrl); sendErr != nil {
 			logger.EapAuthComfirmLog.Infoln(sendErr.Error())

@@ -175,7 +175,8 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 
 	locationURI := self.Url + "/nausf-auth/v1/ue-authentications/" + supiOrSuci
 	putLink := locationURI
-	if authInfoResult.AuthType == models.AuthType__5_G_AKA {
+	switch authInfoResult.AuthType {
+	case models.AuthType__5_G_AKA:
 		logger.UeAuthPostLog.Infoln("use 5G AKA auth method")
 		putLink += "/5g-aka-confirmation"
 
@@ -215,7 +216,7 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 		av5gAka.HxresStar = hxresStar
 
 		responseBody.Var5gAuthData = av5gAka
-	} else if authInfoResult.AuthType == models.AuthType_EAP_AKA_PRIME {
+	case models.AuthType_EAP_AKA_PRIME:
 		logger.UeAuthPostLog.Infoln("use EAP-AKA' auth method")
 		putLink += "/eap-session"
 
