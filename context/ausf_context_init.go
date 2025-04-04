@@ -68,6 +68,7 @@ func InitAusfContext(context *AUSFContext) {
 	if os.Getenv("MANAGED_BY_CONFIG_POD") != "true" {
 		context.PlmnList = append(context.PlmnList, configuration.PlmnSupportList...)
 	}
+	context.EnableScaling = configuration.EnableScaling
 	context.EnableNrfCaching = configuration.EnableNrfCaching
 	if configuration.EnableNrfCaching {
 		if configuration.NrfCacheEvictionInterval == 0 {
