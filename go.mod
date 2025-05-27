@@ -5,7 +5,7 @@ go 1.24.0
 require (
 	github.com/antihax/optional v1.0.0
 	github.com/bronze1man/radius v0.0.0-20190516032554-afd8baec892d
-	github.com/gin-gonic/gin v1.10.0
+	github.com/gin-gonic/gin v1.10.1
 	github.com/google/gopacket v1.1.19
 	github.com/google/uuid v1.6.0
 	github.com/omec-project/config5g v1.6.0
