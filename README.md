@@ -27,7 +27,38 @@ and the serving network name and the 5G AKA is selected. The NF Service Consumer
 
 Compliance of the 5G Network functions can be found at [5G Compliance](https://docs.sd-core.opennetworking.org/main/overview/3gpp-compliance-5g.html)
 
+## Dynamic Network configuration (via webconsole)
+
+AUSF can be dynamically configured by polling the webconsole for the latests
+network settings. When enabled, the AUSF will poll the webconsole every 5
+seconds to fetch updated PLMN configuration.
+
+### Enabling Polling Mode
+
+To enable this feature, set the following environment variable:
+
+```
+MANAGED_BY_CONFIG_POD = true
+```
+
+Include the `webuiUri` of the webconsole in the configuration file
+```
+configuration:
+  ...
+  webuiUri: https://webui:9090 # or http://webui:9090
+  ...
+```
+The scheme (http:// or https://) must be explicitly specified.
+
+### HTTPS Support
+
+If the webconsole is served over HTTPS and uses a custom or self-signed certificate,
+you must install the root CA certificate into the trust store of the AUSF environment.
+
+Check the official guide for installing root CA certificates on Ubuntu:
+[Install a Root CA Certificate in the Trust Store](https://documentation.ubuntu.com/server/how-to/security/install-a-root-ca-certificate-in-the-trust-store/index.html)
+
 ## Reach out to us thorugh
 
 1. #sdcore-dev channel in [ONF Community Slack](https://onf-community.slack.com/)
-2. Raise Github issues
+2. Raise Github [issues](https://github.com/omec-project/ausf/issues/new)

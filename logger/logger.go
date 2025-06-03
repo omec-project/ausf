@@ -25,7 +25,8 @@ var (
 	ContextLog          *zap.SugaredLogger
 	ConsumerLog         *zap.SugaredLogger
 	GinLog              *zap.SugaredLogger
-	GrpcLog             *zap.SugaredLogger
+	PollConfigLog       *zap.SugaredLogger
+	NrfRegistrationLog  *zap.SugaredLogger
 	atomicLevel         zap.AtomicLevel
 )
 
@@ -67,7 +68,8 @@ func init() {
 	ContextLog = log.Sugar().With("component", "AUSF", "category", "ctx")
 	ConsumerLog = log.Sugar().With("component", "AUSF", "category", "Consumer")
 	GinLog = log.Sugar().With("component", "AUSF", "category", "GIN")
-	GrpcLog = log.Sugar().With("component", "AUSF", "category", "GRPC")
+	PollConfigLog = log.Sugar().With("component", "AUSF", "category", "PollConfig")
+	NrfRegistrationLog = log.Sugar().With("component", "AUSF", "category", "NrfRegistration")
 }
 
 func GetLogger() *zap.Logger {
