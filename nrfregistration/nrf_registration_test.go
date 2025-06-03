@@ -80,7 +80,6 @@ func TestHandleNewConfig_EmptyConfig_DeregisterNF_StopTimer(t *testing.T) {
 			if isRegisterNFCalled {
 				t.Errorf("expected registerNF not to be called")
 			}
-
 		})
 	}
 }
@@ -105,7 +104,6 @@ func TestHandleNewConfig_ConfigChanged_RegisterNFSuccess_StartTimer(t *testing.T
 	if keepAliveTimer == nil {
 		t.Error("expected keepAliveTimer to be initialized by startKeepAliveTimer")
 	}
-
 }
 
 func TestHandleNewConfig_ConfigChanged_RegisterNFFails(t *testing.T) {

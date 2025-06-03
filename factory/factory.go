@@ -32,7 +32,7 @@ func InitConfigFactory(f string) error {
 		if AusfConfig.Configuration.WebuiUri == "" {
 			AusfConfig.Configuration.WebuiUri = "http://webui:9090"
 		}
-		//validate schema
+		// validate schema
 	}
 
 	return nil

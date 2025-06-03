@@ -6,6 +6,7 @@
 package polling
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,7 +14,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/omec-project/ausf/context"
+	ausfContext "github.com/omec-project/ausf/context"
 	"github.com/omec-project/ausf/factory"
 	"github.com/omec-project/ausf/logger"
 	"github.com/omec-project/ausf/nrfregistration"
@@ -30,7 +31,7 @@ const (
 // PollNetworkConfig makes a HTTP GET request to the webconsole and updates the network configuration
 func PollNetworkConfig() {
 	interval := INITIAL_POLLING_INTERVAL
-	context := context.GetSelf()
+	ausfContext := ausfContext.GetSelf()
 
 	for {
 		time.Sleep(interval)
@@ -42,15 +43,23 @@ func PollNetworkConfig() {
 		}
 
 		interval = INITIAL_POLLING_INTERVAL
-		handlePolledPlmnConfig(context, newPlmnConfig)
+		handlePolledPlmnConfig(ausfContext, newPlmnConfig)
 	}
 }
 
 func fetchPlmnConfig() ([]models.PlmnId, error) {
 	pollingEndpoint := factory.AusfConfig.Configuration.WebuiUri + POLLING_PATH
 
-	resp, err := http.Get(pollingEndpoint)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, pollingEndpoint, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("HTTP GET %v failed: %w", pollingEndpoint, err)
 	}
@@ -69,14 +78,14 @@ func fetchPlmnConfig() ([]models.PlmnId, error) {
 	return config, nil
 }
 
-func handlePolledPlmnConfig(context *context.AUSFContext, newPlmnConfig []models.PlmnId) {
-	if reflect.DeepEqual(context.PlmnList, newPlmnConfig) {
+func handlePolledPlmnConfig(ausfContext *ausfContext.AUSFContext, newPlmnConfig []models.PlmnId) {
+	if reflect.DeepEqual(ausfContext.PlmnList, newPlmnConfig) {
 		logger.PollConfigLog.Debugln("PLMN config did not change")
 		return
 	}
-	context.PlmnList = newPlmnConfig
-	logger.PollConfigLog.Infoln("PLMN config changed %v", context.PlmnList)
-	nrfregistration.HandleNewConfig(context.PlmnList)
+	ausfContext.PlmnList = newPlmnConfig
+	logger.PollConfigLog.Infoln("PLMN config changed %v", ausfContext.PlmnList)
+	nrfregistration.HandleNewConfig(ausfContext.PlmnList)
 }
 
 func minDuration(a, b time.Duration) time.Duration {

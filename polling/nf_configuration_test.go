@@ -24,7 +24,6 @@ import (
 )
 
 func TestHandlePolledPlmnConfig_UpdateConfig(t *testing.T) {
-
 	testCases := []struct {
 		name          string
 		newPlmnConfig []models.PlmnId
@@ -40,14 +39,14 @@ func TestHandlePolledPlmnConfig_UpdateConfig(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-
 			originalFunction := nrfregistration.HandleNewConfig
 			called := false
 			nrfregistration.HandleNewConfig = func(newPlmnConfig []models.PlmnId) { called = true }
 			defer func() { nrfregistration.HandleNewConfig = originalFunction }()
 
 			context := &context.AUSFContext{
-				PlmnList: []models.PlmnId{{Mcc: "001", Mnc: "01"}}}
+				PlmnList: []models.PlmnId{{Mcc: "001", Mnc: "01"}},
+			}
 
 			handlePolledPlmnConfig(context, tc.newPlmnConfig)
 
@@ -62,7 +61,6 @@ func TestHandlePolledPlmnConfig_UpdateConfig(t *testing.T) {
 }
 
 func TestHandlePolledPlmnConfig_ConfigDidNotChanged(t *testing.T) {
-
 	testCases := []struct {
 		name          string
 		newPlmnConfig []models.PlmnId
@@ -78,14 +76,14 @@ func TestHandlePolledPlmnConfig_ConfigDidNotChanged(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-
 			originalFunction := nrfregistration.HandleNewConfig
 			called := false
 			nrfregistration.HandleNewConfig = func(newPlmnConfig []models.PlmnId) { called = true }
 			defer func() { nrfregistration.HandleNewConfig = originalFunction }()
 
 			context := &context.AUSFContext{
-				PlmnList: tc.newPlmnConfig}
+				PlmnList: tc.newPlmnConfig,
+			}
 
 			handlePolledPlmnConfig(context, tc.newPlmnConfig)
 
@@ -103,7 +101,9 @@ func TestHandlePolledPlmnConfig_ConfigDidNotChanged(t *testing.T) {
 func TestFetchPlmnConfig_Success(t *testing.T) {
 	expectedPlmnConfig := []models.PlmnId{{Mcc: "001", Mnc: "01"}}
 	handler := func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(expectedPlmnConfig)
+		if err := json.NewEncoder(w).Encode(expectedPlmnConfig); err != nil {
+			t.Fatal("failed to setup test")
+		}
 	}
 	server := httptest.NewServer(http.HandlerFunc(handler))
 	defer server.Close()
@@ -126,7 +126,9 @@ func TestFetchPlmnConfig_Success(t *testing.T) {
 
 func TestFetchPlmnConfig_BadJSON(t *testing.T) {
 	handler := func(w http.ResponseWriter, r *http.Request) {
-		io.WriteString(w, "not-json")
+		if _, err := io.WriteString(w, "not-json"); err != nil {
+			t.Fatal("failed to setup test")
+		}
 	}
 	server := httptest.NewServer(http.HandlerFunc(handler))
 	defer server.Close()

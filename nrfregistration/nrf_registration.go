@@ -119,7 +119,7 @@ func heartbeatNF() {
 			logger.NrfRegistrationLog.Errorln("register AUSF instance error:", err.Error())
 		}
 	} else {
-		logger.NrfRegistrationLog.Infoln("AUSF update NF instance (heartbeat) succeded")
+		logger.NrfRegistrationLog.Infoln("AUSF update NF instance (heartbeat) succeeded")
 	}
 	startKeepAliveTimer(nfProfile)
 }
