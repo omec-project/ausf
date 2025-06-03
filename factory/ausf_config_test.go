@@ -15,7 +15,7 @@ import (
 // Webui URL is not set then default Webui URL value is returned
 func TestGetDefaultWebuiUrl(t *testing.T) {
 	if err := InitConfigFactory("ausfcfg.yaml"); err != nil {
-		t.Logf("error in InitConfigFactory: %v", err)
+		t.Errorf("error in InitConfigFactory: %v", err)
 	}
 	got := AusfConfig.Configuration.WebuiUri
 	want := "http://webui:9090"
@@ -25,9 +25,60 @@ func TestGetDefaultWebuiUrl(t *testing.T) {
 // Webui URL is set to a custom value then custom Webui URL is returned
 func TestGetCustomWebuiUrl(t *testing.T) {
 	if err := InitConfigFactory("ausfcfg_with_custom_webui_url.yaml"); err != nil {
-		t.Logf("error in InitConfigFactory: %v", err)
+		t.Errorf("error in InitConfigFactory: %v", err)
 	}
 	got := AusfConfig.Configuration.WebuiUri
-	want := "myspecialwebui:9872"
+	want := "https://myspecialwebui:9872"
 	assert.Equal(t, got, want, "The webui URL is not correct.")
+}
+
+func TestValidateWebuiUri(t *testing.T) {
+	tests := []struct {
+		name    string
+		uri     string
+		isValid bool
+	}{
+		{
+			name:    "valid https URI with port",
+			uri:     "https://webui:9090",
+			isValid: true,
+		},
+		{
+			name:    "valid http URI with port",
+			uri:     "http://webui:8080",
+			isValid: true,
+		},
+		{
+			name:    "invalid scheme",
+			uri:     "ftp://webui:21",
+			isValid: false,
+		},
+		{
+			name:    "missing scheme",
+			uri:     "webui:9090",
+			isValid: false,
+		},
+		{
+			name:    "missing host",
+			uri:     "https://",
+			isValid: false,
+		},
+		{
+			name:    "empty string",
+			uri:     "",
+			isValid: false,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := validateWebuiUri(tc.uri)
+			if err == nil && !tc.isValid {
+				t.Errorf("expected URI: %s to be invalid", tc.uri)
+			}
+			if err != nil && tc.isValid {
+				t.Errorf("expected URI: %s to be valid", tc.uri)
+			}
+		})
+	}
 }
