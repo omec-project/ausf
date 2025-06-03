@@ -30,8 +30,9 @@ func InitConfigFactory(f string) error {
 			return yamlErr
 		}
 		if AusfConfig.Configuration.WebuiUri == "" {
-			AusfConfig.Configuration.WebuiUri = "webui:9876"
+			AusfConfig.Configuration.WebuiUri = "http://webui:9090"
 		}
+		//validate schema
 	}
 
 	return nil

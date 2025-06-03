@@ -18,7 +18,7 @@ func TestGetDefaultWebuiUrl(t *testing.T) {
 		t.Logf("error in InitConfigFactory: %v", err)
 	}
 	got := AusfConfig.Configuration.WebuiUri
-	want := "webui:9876"
+	want := "http://webui:9090"
 	assert.Equal(t, got, want, "The webui URL is not correct.")
 }
 
