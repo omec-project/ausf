@@ -57,7 +57,7 @@ var registerNF = func(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			logger.NrfRegistrationLog.Infoln("register AUSF instance to NRF cancelled due to new configuration")
+			logger.NrfRegistrationLog.Infoln("no-op. Registration context was cancelled")
 			return
 		default:
 			ausfContext := ausfContext.GetSelf()
@@ -67,7 +67,7 @@ var registerNF = func(ctx context.Context) {
 			}
 			nfProfile, _, ausfContext.NfId, err = consumer.SendRegisterNFInstance(ausfContext.NrfUri, ausfContext.NfId, nfProfile)
 			if err != nil {
-				logger.NrfRegistrationLog.Errorln("register AUSF instance to NRF error:", err.Error())
+				logger.NrfRegistrationLog.Errorln("register AUSF instance to NRF failed. Will retry.", err.Error())
 				time.Sleep(10 * time.Second)
 				continue
 			}

@@ -81,6 +81,7 @@ func (ausf *AUSF) Initialize(c *cli.Context) error {
 	}
 
 	factory.AusfConfig.CfgLocation = absPath
+	context.Init()
 	go polling.PollNetworkConfig()
 
 	return nil
@@ -131,7 +132,6 @@ func (ausf *AUSF) Start() {
 
 	go metrics.InitMetrics()
 
-	context.Init()
 	self := context.GetSelf()
 
 	addr := fmt.Sprintf("%s:%d", self.BindingIPv4, self.SBIPort)

@@ -73,6 +73,7 @@ func InitAusfContext(context *AUSFContext) {
 			context.NrfCacheEvictionInterval = time.Duration(configuration.NrfCacheEvictionInterval)
 		}
 	}
+	context.PlmnList = []models.PlmnId{}
 
 	// context.NfService
 	context.NfService = make(map[models.ServiceName]models.NfService)

@@ -39,10 +39,10 @@ func PollNetworkConfig() {
 		newPlmnConfig, err := fetchPlmnConfig()
 		if err != nil {
 			interval = minDuration(interval*time.Duration(POLLING_BACKOFF_FACTOR), POLLING_MAX_BACKOFF)
-			logger.PollConfigLog.Infoln("error polling network configuration", err)
+			logger.PollConfigLog.Errorf("error polling network configuration. Will retry in %v: ", interval, err)
 			continue
 		}
-
+		logger.PollConfigLog.Infoln("configuration polled successfully")
 		interval = INITIAL_POLLING_INTERVAL
 		handlePolledPlmnConfig(ausfContext, newPlmnConfig)
 	}
@@ -97,7 +97,7 @@ func handlePolledPlmnConfig(ausfContext *ausfContext.AUSFContext, newPlmnConfig 
 		return
 	}
 	ausfContext.PlmnList = newPlmnConfig
-	logger.PollConfigLog.Infoln("PLMN config changed %v", ausfContext.PlmnList)
+	logger.PollConfigLog.Infoln("PLMN config changed. New PLMN ID list:", ausfContext.PlmnList)
 	nrfregistration.HandleNewConfig(ausfContext.PlmnList)
 }
 
