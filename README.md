@@ -1,4 +1,5 @@
 <!--
+SPDX-FileCopyrightText: 2025 Canonical Ltd
 SPDX-FileCopyrightText: 2021 Open Networking Foundation <info@opennetworking.org>
 Copyright 2019 free5GC.org
 
@@ -29,17 +30,9 @@ Compliance of the 5G Network functions can be found at [5G Compliance](https://d
 
 ## Dynamic Network configuration (via webconsole)
 
-AUSF can be dynamically configured by polling the webconsole for the latests
-network settings. When enabled, the AUSF will poll the webconsole every 5
-seconds to fetch updated PLMN configuration.
+AUSF polls the webconsole every 5 seconds to fetch the latest PLMN configuration.
 
-### Enabling Polling Mode
-
-To enable this feature, set the following environment variable:
-
-```
-MANAGED_BY_CONFIG_POD = true
-```
+### Setting Up Polling
 
 Include the `webuiUri` of the webconsole in the configuration file
 ```
@@ -58,7 +51,7 @@ you must install the root CA certificate into the trust store of the AUSF enviro
 Check the official guide for installing root CA certificates on Ubuntu:
 [Install a Root CA Certificate in the Trust Store](https://documentation.ubuntu.com/server/how-to/security/install-a-root-ca-certificate-in-the-trust-store/index.html)
 
-## Reach out to us thorugh
+## Reach out to us through
 
 1. #sdcore-dev channel in [ONF Community Slack](https://onf-community.slack.com/)
 2. Raise Github [issues](https://github.com/omec-project/ausf/issues/new)

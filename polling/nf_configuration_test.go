@@ -11,26 +11,31 @@ package polling
 
 import (
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/omec-project/ausf/context"
 	"github.com/omec-project/ausf/factory"
 	"github.com/omec-project/ausf/nrfregistration"
 	"github.com/omec-project/openapi/models"
+	"github.com/stretchr/testify/assert"
 )
 
-func TestHandlePolledPlmnConfig_UpdateConfig(t *testing.T) {
+func TestHandlePolledPlmnConfig_ConfigChanged_CallsNRFRegistration(t *testing.T) {
 	testCases := []struct {
 		name          string
 		newPlmnConfig []models.PlmnId
 	}{
 		{
-			name:          "ConfigChanged",
+			name:          "ConfigChangedOneElement",
 			newPlmnConfig: []models.PlmnId{{Mcc: "001", Mnc: "02"}},
+		},
+		{
+			name:          "ConfigChangedTwoElements",
+			newPlmnConfig: []models.PlmnId{{Mcc: "001", Mnc: "02"}, {Mcc: "022", Mnc: "02"}},
 		},
 		{
 			name:          "EmptyConfig",
@@ -60,7 +65,7 @@ func TestHandlePolledPlmnConfig_UpdateConfig(t *testing.T) {
 	}
 }
 
-func TestHandlePolledPlmnConfig_ConfigDidNotChanged(t *testing.T) {
+func TestHandlePolledPlmnConfig_ConfigDidNotChanged_DoesNotCallNRFRegistration(t *testing.T) {
 	testCases := []struct {
 		name          string
 		newPlmnConfig []models.PlmnId
@@ -98,49 +103,104 @@ func TestHandlePolledPlmnConfig_ConfigDidNotChanged(t *testing.T) {
 	}
 }
 
-func TestFetchPlmnConfig_Success(t *testing.T) {
-	expectedPlmnConfig := []models.PlmnId{{Mcc: "001", Mnc: "01"}}
-	handler := func(w http.ResponseWriter, r *http.Request) {
-		if err := json.NewEncoder(w).Encode(expectedPlmnConfig); err != nil {
-			t.Fatal("failed to setup test")
-		}
+func TestFetchPlmnConfig(t *testing.T) {
+	validPlmnList := []models.PlmnId{
+		{Mcc: "001", Mnc: "01"},
+		{Mcc: "002", Mnc: "02"},
 	}
-	server := httptest.NewServer(http.HandlerFunc(handler))
-	defer server.Close()
+	validJson, _ := json.Marshal(validPlmnList)
 
-	factory.AusfConfig = factory.Config{
-		Configuration: &factory.Configuration{
-			WebuiUri: server.URL,
+	tests := []struct {
+		name           string
+		statusCode     int
+		contentType    string
+		responseBody   string
+		expectedError  string
+		expectedResult []models.PlmnId
+	}{
+		{
+			name:           "200 OK with valid JSON",
+			statusCode:     http.StatusOK,
+			contentType:    "application/json",
+			responseBody:   string(validJson),
+			expectedError:  "",
+			expectedResult: validPlmnList,
+		},
+		{
+			name:          "200 OK with invalid Content-Type",
+			statusCode:    http.StatusOK,
+			contentType:   "text/plain",
+			responseBody:  string(validJson),
+			expectedError: "unexpected Content-Type: got text/plain, want application/json",
+		},
+		{
+			name:          "400 Bad Request",
+			statusCode:    http.StatusBadRequest,
+			contentType:   "application/json",
+			responseBody:  "",
+			expectedError: "server returned 400 error code",
+		},
+		{
+			name:          "500 Internal Server Error",
+			statusCode:    http.StatusInternalServerError,
+			contentType:   "application/json",
+			responseBody:  "",
+			expectedError: "server returned 500 error code",
+		},
+		{
+			name:          "Unexpected Status Code 418",
+			statusCode:    418,
+			contentType:   "application/json",
+			responseBody:  "",
+			expectedError: "unexpected status code: 418",
+		},
+		{
+			name:          "200 OK with invalid JSON",
+			statusCode:    http.StatusOK,
+			contentType:   "application/json",
+			responseBody:  "{invalid-json}",
+			expectedError: "failed to parse JSON response:",
 		},
 	}
 
-	fetchedConfig, err := fetchPlmnConfig()
-	if err != nil {
-		t.Fatalf("expected no error, got %v", err)
-	}
+	for _, tc := range tests {
 
-	if !reflect.DeepEqual(fetchedConfig, expectedPlmnConfig) {
-		t.Errorf("expected %v, got %v", expectedPlmnConfig, fetchedConfig)
-	}
-}
+		t.Run(tc.name, func(t *testing.T) {
+			handler := func(w http.ResponseWriter, r *http.Request) {
+				accept := r.Header.Get("Accept")
+				assert.Equal(t, "application/json", accept)
 
-func TestFetchPlmnConfig_BadJSON(t *testing.T) {
-	handler := func(w http.ResponseWriter, r *http.Request) {
-		if _, err := io.WriteString(w, "not-json"); err != nil {
-			t.Fatal("failed to setup test")
-		}
-	}
-	server := httptest.NewServer(http.HandlerFunc(handler))
-	defer server.Close()
+				w.Header().Set("Content-Type", tc.contentType)
+				w.WriteHeader(tc.statusCode)
+				_, _ = w.Write([]byte(tc.responseBody))
+			}
+			server := httptest.NewServer(http.HandlerFunc(handler))
+			defer server.Close()
 
-	factory.AusfConfig = factory.Config{
-		Configuration: &factory.Configuration{
-			WebuiUri: server.URL,
-		},
-	}
+			factory.AusfConfig = factory.Config{
+				Configuration: &factory.Configuration{
+					WebuiUri: server.URL,
+				},
+			}
+			fetchedConfig, err := fetchPlmnConfig()
 
-	_, err := fetchPlmnConfig()
-	if err == nil {
-		t.Error("expected error for bad JSON")
+			if tc.expectedError == "" {
+				if err != nil {
+					t.Errorf("expected no error, got `%v`", err)
+				}
+				if !reflect.DeepEqual(tc.expectedResult, fetchedConfig) {
+					t.Errorf("error in fetched config: expected `%v`, got `%v`", tc.expectedResult, fetchedConfig)
+				}
+			} else {
+				if err == nil {
+					t.Errorf("expected error `%v`, got nil", tc.expectedError)
+				}
+				if !strings.Contains(err.Error(), tc.expectedError) {
+					t.Errorf("expected error `%v`, got `%v`", tc.expectedError, err)
+				}
+			}
+
+			factory.AusfConfig.Configuration = nil
+		})
 	}
 }

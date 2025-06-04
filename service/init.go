@@ -81,16 +81,8 @@ func (ausf *AUSF) Initialize(c *cli.Context) error {
 	}
 
 	factory.AusfConfig.CfgLocation = absPath
+	go polling.PollNetworkConfig()
 
-	if os.Getenv("MANAGED_BY_CONFIG_POD") == "true" {
-		logger.InitLog.Infoln("MANAGED_BY_CONFIG_POD is true")
-		go polling.PollNetworkConfig()
-	} else {
-		go func() {
-			logger.InitLog.Infoln("use helm chart config")
-			nrfregistration.HandleNewConfig(factory.AusfConfig.Configuration.PlmnSupportList)
-		}()
-	}
 	return nil
 }
 
@@ -231,15 +223,6 @@ func (ausf *AUSF) Exec(c *cli.Context) error {
 
 func (ausf *AUSF) Terminate() {
 	logger.InitLog.Infof("terminating AUSF")
-	// deregister with NRF
-	problemDetails, err := consumer.SendDeregisterNFInstance()
-	if problemDetails != nil {
-		logger.InitLog.Errorf("deregister NF instance Failed Problem[%+v]", problemDetails)
-	} else if err != nil {
-		logger.InitLog.Errorf("deregister NF instance Error[%+v]", err)
-	} else {
-		logger.InitLog.Infoln("deregister from NRF successfully")
-	}
-
+	nrfregistration.DeregisterNF()
 	logger.InitLog.Infoln("AUSF terminated")
 }

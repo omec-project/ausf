@@ -12,6 +12,7 @@ import (
 	"io"
 	"net/http"
 	"reflect"
+	"strings"
 	"time"
 
 	ausfContext "github.com/omec-project/ausf/context"
@@ -37,8 +38,8 @@ func PollNetworkConfig() {
 		time.Sleep(interval)
 		newPlmnConfig, err := fetchPlmnConfig()
 		if err != nil {
-			logger.PollConfigLog.Infoln("error polling network configuration", err)
 			interval = minDuration(interval*time.Duration(POLLING_BACKOFF_FACTOR), POLLING_MAX_BACKOFF)
+			logger.PollConfigLog.Infoln("error polling network configuration", err)
 			continue
 		}
 
@@ -49,7 +50,6 @@ func PollNetworkConfig() {
 
 func fetchPlmnConfig() ([]models.PlmnId, error) {
 	pollingEndpoint := factory.AusfConfig.Configuration.WebuiUri + POLLING_PATH
-
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -57,6 +57,7 @@ func fetchPlmnConfig() ([]models.PlmnId, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
 	}
+	req.Header.Set("Accept", "application/json")
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -65,17 +66,29 @@ func fetchPlmnConfig() ([]models.PlmnId, error) {
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
+	contentType := resp.Header.Get("Content-Type")
+	if !strings.Contains(contentType, "application/json") {
+		return nil, fmt.Errorf("unexpected Content-Type: got %s, want application/json", contentType)
 	}
 
-	var config []models.PlmnId
-	if err := json.Unmarshal(body, &config); err != nil {
-		return nil, fmt.Errorf("failed to parse JSON response: %w", err)
-	}
+	switch resp.StatusCode {
+	case http.StatusOK:
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read response body: %w", err)
+		}
 
-	return config, nil
+		var config []models.PlmnId
+		if err := json.Unmarshal(body, &config); err != nil {
+			return nil, fmt.Errorf("failed to parse JSON response: %w", err)
+		}
+		return config, nil
+
+	case http.StatusBadRequest, http.StatusInternalServerError:
+		return nil, fmt.Errorf("server returned %d error code", resp.StatusCode)
+	default:
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
 }
 
 func handlePolledPlmnConfig(ausfContext *ausfContext.AUSFContext, newPlmnConfig []models.PlmnId) {

@@ -43,7 +43,7 @@ var HandleNewConfig = func(newPlmnConfig []models.PlmnId) {
 
 	if len(newPlmnConfig) == 0 {
 		logger.NrfRegistrationLog.Debugln("PLMN config is empty. AUSF will degister")
-		deregisterNF()
+		DeregisterNF()
 	} else {
 		logger.NrfRegistrationLog.Debugln("PLMN config is not empty. AUSF will update registration")
 		// Create new cancellable context for this registration
@@ -137,7 +137,7 @@ func shouldRegister(problemDetails *models.ProblemDetails, err error) bool {
 	return false
 }
 
-var deregisterNF = func() {
+var DeregisterNF = func() {
 	keepAliveTimerMutex.Lock()
 	stopKeepAliveTimer()
 	keepAliveTimerMutex.Unlock()
