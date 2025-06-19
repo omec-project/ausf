@@ -31,7 +31,7 @@ import (
 	nrfCache "github.com/omec-project/openapi/nrfcache"
 	"github.com/omec-project/util/http2_util"
 	utilLogger "github.com/omec-project/util/logger"
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v3"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -48,7 +48,7 @@ type (
 var config Config
 
 var ausfCLi = []cli.Flag{
-	cli.StringFlag{
+	&cli.StringFlag{
 		Name:     "cfg",
 		Usage:    "ausf config file",
 		Required: true,
@@ -70,7 +70,7 @@ func (*AUSF) GetCliCmd() (flags []cli.Flag) {
 	return ausfCLi
 }
 
-func (ausf *AUSF) Initialize(c *cli.Context) error {
+func (ausf *AUSF) Initialize(c *cli.Command) error {
 	config = Config{
 		cfg: c.String("cfg"),
 	}
@@ -182,9 +182,9 @@ func (ausf *AUSF) setLogLevel() {
 	}
 }
 
-func (ausf *AUSF) FilterCli(c *cli.Context) (args []string) {
+func (ausf *AUSF) FilterCli(c *cli.Command) (args []string) {
 	for _, flag := range ausf.GetCliCmd() {
-		name := flag.GetName()
+		name := flag.Names()[0]
 		value := fmt.Sprint(c.Generic(name))
 		if value == "" {
 			continue
@@ -305,7 +305,7 @@ func (ausf *AUSF) Start() {
 	}
 }
 
-func (ausf *AUSF) Exec(c *cli.Context) error {
+func (ausf *AUSF) Exec(c *cli.Command) error {
 	logger.InitLog.Debugln("args:", c.String("cfg"))
 	args := ausf.FilterCli(c)
 	logger.InitLog.Debugln("filter:", args)
