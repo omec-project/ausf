@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/omec-project/ausf/consumer"
-	ausfContext "github.com/omec-project/ausf/context"
 	"github.com/omec-project/ausf/logger"
 	"github.com/omec-project/openapi/models"
 )
@@ -48,55 +47,35 @@ var HandleNewConfig = func(newPlmnConfig []models.PlmnId) {
 		logger.NrfRegistrationLog.Debugln("PLMN config is not empty. AUSF will update registration")
 		// Create new cancellable context for this registration
 		registerCtx, registerCancel = context.WithCancel(context.Background())
-		go registerNF(registerCtx)
+		go registerNF(registerCtx, newPlmnConfig)
 	}
 }
 
 // registerNF sends a RegisterNFInstance. If it fails, it keeps retrying, until the context is cancelled by HandleNewConfig.
-var registerNF = func(ctx context.Context) {
+var registerNF = func(ctx context.Context, newPlmnConfig []models.PlmnId) {
 	for {
 		select {
 		case <-ctx.Done():
 			logger.NrfRegistrationLog.Infoln("no-op. Registration context was cancelled")
 			return
 		default:
-			ausfContext := ausfContext.GetSelf()
-			nfProfile, err := consumer.BuildNFInstance(ausfContext)
-			if err != nil {
-				logger.NrfRegistrationLog.Warnln("build AUSF nfProfile failed:", err)
-			}
-			nfProfile, _, ausfContext.NfId, err = consumer.SendRegisterNFInstance(ausfContext.NrfUri, ausfContext.NfId, nfProfile)
+			nfProfile, _, err := consumer.SendRegisterNFInstance(newPlmnConfig)
 			if err != nil {
 				logger.NrfRegistrationLog.Errorln("register AUSF instance to NRF failed. Will retry.", err.Error())
 				time.Sleep(10 * time.Second)
 				continue
 			}
 			logger.NrfRegistrationLog.Infoln("register AUSF instance to NRF with updated profile succeeded")
-			startKeepAliveTimer(nfProfile)
+			startKeepAliveTimer(nfProfile.HeartBeatTimer, newPlmnConfig)
 			return
 		}
 	}
 }
 
-func buildAndSendRegisterNFInstance() (models.NfProfile, error) {
-	self := ausfContext.GetSelf()
-	nfProfile, err := consumer.BuildNFInstance(self)
-	if err != nil {
-		return nfProfile, err
-	}
-
-	nfProfile, _, self.NfId, err = consumer.SendRegisterNFInstance(self.NrfUri, self.NfId, nfProfile)
-	if err != nil {
-		return nfProfile, err
-	}
-	logger.NrfRegistrationLog.Infoln("register AUSF instance to NRF with updated profile succeeded")
-	return nfProfile, nil
-}
-
 // heartbeatNF is the callback function, this is called when keepalivetimer elapsed.
 // It sends a Update NF instance to the NRF. If it fails, it tries to register again.
 // keepAliveTimer is restarted at the end.
-func heartbeatNF() {
+func heartbeatNF(plmnConfig []models.PlmnId) {
 	keepAliveTimerMutex.Lock()
 	if keepAliveTimer == nil {
 		logger.NrfRegistrationLog.Infoln("heartbeat timer has been stopped, heartbeat will not be sent to NRF")
@@ -114,14 +93,17 @@ func heartbeatNF() {
 	nfProfile, problemDetails, err := consumer.SendUpdateNFInstance(patchItem)
 
 	if shouldRegister(problemDetails, err) {
-		nfProfile, err = buildAndSendRegisterNFInstance()
+		logger.NrfRegistrationLog.Debugln("NF heartbeat failed. Trying to register again")
+		nfProfile, _, err = consumer.SendRegisterNFInstance(plmnConfig)
 		if err != nil {
 			logger.NrfRegistrationLog.Errorln("register AUSF instance error:", err.Error())
 		}
+		logger.NrfRegistrationLog.Infoln("register AUSF instance to NRF with updated profile succeeded")
+
 	} else {
 		logger.NrfRegistrationLog.Infoln("AUSF update NF instance (heartbeat) succeeded")
 	}
-	startKeepAliveTimer(nfProfile)
+	startKeepAliveTimer(nfProfile.HeartBeatTimer, plmnConfig)
 }
 
 func shouldRegister(problemDetails *models.ProblemDetails, err error) bool {
@@ -153,16 +135,17 @@ var DeregisterNF = func() {
 	logger.NrfRegistrationLog.Infoln("deregister instance from NRF successful")
 }
 
-func startKeepAliveTimer(nfProfile models.NfProfile) {
+func startKeepAliveTimer(profileHeartbeatTimer int32, plmnConfig []models.PlmnId) {
 	keepAliveTimerMutex.Lock()
 	defer keepAliveTimerMutex.Unlock()
 	stopKeepAliveTimer()
 	heartbeatTimer := DEFAULT_HEARTBEAT_TIMER
-	if nfProfile.HeartBeatTimer != 0 {
-		heartbeatTimer = nfProfile.HeartBeatTimer
+	if profileHeartbeatTimer != 0 {
+		heartbeatTimer = profileHeartbeatTimer
 	}
+	heartbeatFunction := func() { heartbeatNF(plmnConfig) }
 	// AfterFunc starts timer and waits for keepAliveTimer to elapse and then calls heartbeatNF function
-	keepAliveTimer = time.AfterFunc(time.Duration(heartbeatTimer)*time.Second, heartbeatNF)
+	keepAliveTimer = time.AfterFunc(time.Duration(heartbeatTimer)*time.Second, heartbeatFunction)
 	logger.NrfRegistrationLog.Infof("started heartbeat timer: %v sec", heartbeatTimer)
 }
 

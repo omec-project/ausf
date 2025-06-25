@@ -18,7 +18,7 @@ import (
 	"github.com/omec-project/openapi/models"
 )
 
-func BuildNFInstance(ausfContext *ausfContext.AUSFContext) (profile models.NfProfile, err error) {
+func buildNFInstance(ausfContext *ausfContext.AUSFContext, plmnConfig []models.PlmnId) (profile models.NfProfile, err error) {
 	profile.NfInstanceId = ausfContext.NfId
 	profile.NfType = models.NfType_AUSF
 	profile.NfStatus = models.NfStatus_REGISTERED
@@ -33,23 +33,29 @@ func BuildNFInstance(ausfContext *ausfContext.AUSFContext) (profile models.NfPro
 	var ausfInfo models.AusfInfo
 	ausfInfo.GroupId = ausfContext.GroupID
 	profile.AusfInfo = &ausfInfo
-	profile.PlmnList = &ausfContext.PlmnList
+	profile.PlmnList = &plmnConfig
 	return
 }
 
-var SendRegisterNFInstance = func(nrfUri, nfInstanceId string, profile models.NfProfile) (prof models.NfProfile, resourceNrfUri string, retrieveNfInstanceId string, err error) {
+var SendRegisterNFInstance = func(plmnConfig []models.PlmnId) (prof models.NfProfile, resourceNrfUri string, err error) {
+	self := ausfContext.GetSelf()
+	profile, err := buildNFInstance(self, plmnConfig)
+	if err != nil {
+		return profile, "", err
+	}
+
 	configuration := Nnrf_NFManagement.NewConfiguration()
-	configuration.SetBasePath(nrfUri)
+	configuration.SetBasePath(self.NrfUri)
 	client := Nnrf_NFManagement.NewAPIClient(configuration)
 
-	nfProfile, res, err := client.NFInstanceIDDocumentApi.RegisterNFInstance(context.TODO(), nfInstanceId, profile)
+	nfProfile, res, err := client.NFInstanceIDDocumentApi.RegisterNFInstance(context.TODO(), profile.NfInstanceId, profile)
 	logger.ConsumerLog.Debugln("RegisterNFInstance done using profile:", profile)
 	if err != nil {
-		return nfProfile, "", "", err
+		return nfProfile, "", err
 	}
 
 	if res == nil {
-		return nfProfile, "", "", openapi.ReportError("no response from server")
+		return nfProfile, "", openapi.ReportError("no response from server")
 	}
 
 	defer func() {
@@ -61,15 +67,16 @@ var SendRegisterNFInstance = func(nrfUri, nfInstanceId string, profile models.Nf
 	switch res.StatusCode {
 	case http.StatusOK: // NFUpdate
 		logger.ConsumerLog.Debugln("AUSF NF profile updated with complete replacement")
-		return nfProfile, "", "", nil
+		return nfProfile, "", nil
 	case http.StatusCreated: // NFRegister
 		resourceUri := res.Header.Get("Location")
 		resourceNrfUri = resourceUri[:strings.Index(resourceUri, "/nnrf-nfm/")]
-		retrieveNfInstanceId = resourceUri[strings.LastIndex(resourceUri, "/")+1:]
+		retrieveNfInstanceId := resourceUri[strings.LastIndex(resourceUri, "/")+1:]
+		self.NfId = retrieveNfInstanceId
 		logger.ConsumerLog.Debugln("AUSF NF profile registered to the NRF")
-		return nfProfile, resourceNrfUri, retrieveNfInstanceId, nil
+		return nfProfile, resourceNrfUri, nil
 	default:
-		return nfProfile, "", "", openapi.ReportError("unexpected status code returned by the NRF %d", res.StatusCode)
+		return nfProfile, "", openapi.ReportError("unexpected status code returned by the NRF %d", res.StatusCode)
 	}
 }
 

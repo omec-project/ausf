@@ -17,8 +17,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/omec-project/ausf/context"
-	"github.com/omec-project/ausf/factory"
 	"github.com/omec-project/ausf/nrfregistration"
 	"github.com/omec-project/openapi/models"
 	"github.com/stretchr/testify/assert"
@@ -49,14 +47,13 @@ func TestHandlePolledPlmnConfig_ConfigChanged_CallsNRFRegistration(t *testing.T)
 			nrfregistration.HandleNewConfig = func(newPlmnConfig []models.PlmnId) { called = true }
 			defer func() { nrfregistration.HandleNewConfig = originalFunction }()
 
-			context := &context.AUSFContext{
-				PlmnList: []models.PlmnId{{Mcc: "001", Mnc: "01"}},
+			poller := nfConfigPoller{
+				currentPlmnConfig: []models.PlmnId{{Mcc: "001", Mnc: "01"}},
 			}
+			poller.handlePolledPlmnConfig(tc.newPlmnConfig)
 
-			handlePolledPlmnConfig(context, tc.newPlmnConfig)
-
-			if !reflect.DeepEqual(context.PlmnList, tc.newPlmnConfig) {
-				t.Errorf("Expected PLMN config to be updated to %v, got %v", tc.newPlmnConfig, context.PlmnList)
+			if !reflect.DeepEqual(poller.currentPlmnConfig, tc.newPlmnConfig) {
+				t.Errorf("Expected PLMN config to be updated to %v, got %v", tc.newPlmnConfig, poller.currentPlmnConfig)
 			}
 			if !called {
 				t.Error("Expected nrfregistration.HandleNewConfig to be called")
@@ -86,14 +83,13 @@ func TestHandlePolledPlmnConfig_ConfigDidNotChanged_DoesNotCallNRFRegistration(t
 			nrfregistration.HandleNewConfig = func(newPlmnConfig []models.PlmnId) { called = true }
 			defer func() { nrfregistration.HandleNewConfig = originalFunction }()
 
-			context := &context.AUSFContext{
-				PlmnList: tc.newPlmnConfig,
+			poller := nfConfigPoller{
+				currentPlmnConfig: tc.newPlmnConfig,
 			}
+			poller.handlePolledPlmnConfig(tc.newPlmnConfig)
 
-			handlePolledPlmnConfig(context, tc.newPlmnConfig)
-
-			if !reflect.DeepEqual(context.PlmnList, tc.newPlmnConfig) {
-				t.Errorf("Expected PLMN list to remain unchanged, got %v", context.PlmnList)
+			if !reflect.DeepEqual(poller.currentPlmnConfig, tc.newPlmnConfig) {
+				t.Errorf("Expected PLMN list to remain unchanged, got %v", poller.currentPlmnConfig)
 			}
 
 			if called {
@@ -164,7 +160,6 @@ func TestFetchPlmnConfig(t *testing.T) {
 	}
 
 	for _, tc := range tests {
-
 		t.Run(tc.name, func(t *testing.T) {
 			handler := func(w http.ResponseWriter, r *http.Request) {
 				accept := r.Header.Get("Accept")
@@ -177,12 +172,7 @@ func TestFetchPlmnConfig(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(handler))
 			defer server.Close()
 
-			factory.AusfConfig = factory.Config{
-				Configuration: &factory.Configuration{
-					WebuiUri: server.URL,
-				},
-			}
-			fetchedConfig, err := fetchPlmnConfig()
+			fetchedConfig, err := fetchPlmnConfig(server.URL)
 
 			if tc.expectedError == "" {
 				if err != nil {
@@ -199,8 +189,6 @@ func TestFetchPlmnConfig(t *testing.T) {
 					t.Errorf("expected error `%v`, got `%v`", tc.expectedError, err)
 				}
 			}
-
-			factory.AusfConfig.Configuration = nil
 		})
 	}
 }

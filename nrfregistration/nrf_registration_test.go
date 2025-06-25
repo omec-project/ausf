@@ -63,7 +63,7 @@ func TestHandleNewConfig_EmptyConfig_DeregisterNF_StopTimer(t *testing.T) {
 
 			consumer.SendDeregisterNFInstance = tc.sendDeregisterNFInstanceMock
 
-			registerNF = func(ctx context.Context) {
+			registerNF = func(ctx context.Context, newPlmnConfig []models.PlmnId) {
 				isRegisterNFCalled = true
 			}
 
@@ -93,9 +93,9 @@ func TestHandleNewConfig_ConfigChanged_RegisterNFSuccess_StartTimer(t *testing.T
 		}
 	}()
 
-	consumer.SendRegisterNFInstance = func(nrfUri string, nfInstanceId string, profile models.NfProfile) (models.NfProfile, string, string, error) {
-		profile.HeartBeatTimer = 60
-		return profile, "", "", nil
+	consumer.SendRegisterNFInstance = func(plmnConfig []models.PlmnId) (models.NfProfile, string, error) {
+		profile := models.NfProfile{HeartBeatTimer: 60}
+		return profile, "", nil
 	}
 
 	HandleNewConfig([]models.PlmnId{{Mcc: "001", Mnc: "01"}})
@@ -115,9 +115,9 @@ func TestHandleNewConfig_ConfigChanged_RegisterNFFails(t *testing.T) {
 		}
 	}()
 
-	consumer.SendRegisterNFInstance = func(nrfUri string, nfInstanceId string, profile models.NfProfile) (models.NfProfile, string, string, error) {
-		profile.HeartBeatTimer = 60
-		return profile, "", "", errors.New("mock error")
+	consumer.SendRegisterNFInstance = func(plmnConfig []models.PlmnId) (models.NfProfile, string, error) {
+		profile := models.NfProfile{HeartBeatTimer: 60}
+		return profile, "", errors.New("mock error")
 	}
 
 	// Initial call: should start first registerNF
@@ -169,14 +169,12 @@ func TestHeartbeatNF_Success(t *testing.T) {
 	consumer.SendUpdateNFInstance = func(patchItem []models.PatchItem) (models.NfProfile, *models.ProblemDetails, error) {
 		return models.NfProfile{}, nil, nil
 	}
-
-	consumer.SendRegisterNFInstance = func(nrfUri string, nfInstanceId string, profile models.NfProfile) (models.NfProfile, string, string, error) {
-		profile.HeartBeatTimer = 60
-		calledRegister = true
-		return profile, "", "", nil
+	consumer.SendRegisterNFInstance = func(plmnConfig []models.PlmnId) (models.NfProfile, string, error) {
+		profile := models.NfProfile{HeartBeatTimer: 60}
+		return profile, "", nil
 	}
-
-	heartbeatNF()
+	plmnConfig := []models.PlmnId{}
+	heartbeatNF(plmnConfig)
 
 	if calledRegister {
 		t.Errorf("expected registerNF to be called on error")
@@ -204,13 +202,14 @@ func TestHeartbeatNF_RegistersOnError(t *testing.T) {
 		return models.NfProfile{}, nil, errors.New("mock error")
 	}
 
-	consumer.SendRegisterNFInstance = func(nrfUri string, nfInstanceId string, profile models.NfProfile) (models.NfProfile, string, string, error) {
-		profile.HeartBeatTimer = 60
+	consumer.SendRegisterNFInstance = func(plmnConfig []models.PlmnId) (models.NfProfile, string, error) {
+		profile := models.NfProfile{HeartBeatTimer: 60}
 		calledRegister = true
-		return profile, "", "", nil
+		return profile, "", nil
 	}
 
-	heartbeatNF()
+	plmnConfig := []models.PlmnId{}
+	heartbeatNF(plmnConfig)
 
 	if !calledRegister {
 		t.Errorf("expected registerNF to be called on error")

@@ -82,7 +82,7 @@ func (ausf *AUSF) Initialize(c *cli.Command) error {
 
 	factory.AusfConfig.CfgLocation = absPath
 	context.Init()
-	go polling.PollNetworkConfig()
+	go polling.StartPollingService(factory.AusfConfig.Configuration.WebuiUri)
 
 	return nil
 }
