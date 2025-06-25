@@ -15,30 +15,31 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 
 	"github.com/omec-project/ausf/logger"
 	"github.com/omec-project/ausf/service"
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v3"
 )
 
 var AUSF = &service.AUSF{}
 
 func main() {
-	app := cli.NewApp()
+	app := &cli.Command{}
 	app.Name = "ausf"
 	logger.AppLog.Infoln(app.Name)
 	app.Usage = "Authentication Server Function"
 	app.UsageText = "ausf -cfg <ausf_config_file.conf>"
 	app.Action = action
 	app.Flags = AUSF.GetCliCmd()
-	if err := app.Run(os.Args); err != nil {
+	if err := app.Run(context.Background(), os.Args); err != nil {
 		logger.AppLog.Fatalf("AUSF run error: %v", err)
 	}
 }
 
-func action(c *cli.Context) error {
+func action(ctx context.Context, c *cli.Command) error {
 	if err := AUSF.Initialize(c); err != nil {
 		logger.CfgLog.Errorf("%+v", err)
 		return fmt.Errorf("failed to initialize")
