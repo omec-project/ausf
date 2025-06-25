@@ -33,7 +33,10 @@ func buildNFInstance(ausfContext *ausfContext.AUSFContext, plmnConfig []models.P
 	var ausfInfo models.AusfInfo
 	ausfInfo.GroupId = ausfContext.GroupID
 	profile.AusfInfo = &ausfInfo
-	profile.PlmnList = &plmnConfig
+
+	plmnCopy := make([]models.PlmnId, len(plmnConfig))
+	copy(plmnCopy, plmnConfig)
+	profile.PlmnList = &plmnCopy
 	return
 }
 

@@ -16,7 +16,6 @@ import (
 	"time"
 
 	"github.com/omec-project/ausf/logger"
-	"github.com/omec-project/ausf/nrfregistration"
 	"github.com/omec-project/openapi/models"
 )
 
@@ -28,37 +27,37 @@ const (
 )
 
 type nfConfigPoller struct {
-	webuiUri          string
+	plmnConfigChan    chan<- []models.PlmnId
 	currentPlmnConfig []models.PlmnId
 }
 
-// StartPollingService initializes the polling service and starts it
-func StartPollingService(webuiUri string) {
+// StartPollingService initializes the polling service and starts it. The polling service
+// continuously makes a HTTP GET request to the webconsole and updates the network configuration
+func StartPollingService(ctx context.Context, webuiUri string, plmnConfigChan chan<- []models.PlmnId) {
 	plmnConfig := []models.PlmnId{}
 	poller := nfConfigPoller{
-		webuiUri:          webuiUri,
+		plmnConfigChan:    plmnConfigChan,
 		currentPlmnConfig: plmnConfig,
 	}
-	poller.pollNetworkConfig()
-}
-
-// pollNetworkConfig continously makes a HTTP GET request to the webconsole
-// and updates the network configuration
-func (p *nfConfigPoller) pollNetworkConfig() {
 	interval := INITIAL_POLLING_INTERVAL
-	pollingEndpoint := p.webuiUri + POLLING_PATH
+	pollingEndpoint := webuiUri + POLLING_PATH
 
 	for {
-		time.Sleep(interval)
-		newPlmnConfig, err := fetchPlmnConfig(pollingEndpoint)
-		if err != nil {
-			interval = minDuration(interval*time.Duration(POLLING_BACKOFF_FACTOR), POLLING_MAX_BACKOFF)
-			logger.PollConfigLog.Errorf("error polling network configuration. Will retry in %v: ", interval, err)
-			continue
+		select {
+		case <-ctx.Done():
+			logger.PollConfigLog.Infoln("Polling service shutting down")
+			return
+		case <-time.After(interval):
+			newPlmnConfig, err := fetchPlmnConfig(pollingEndpoint)
+			if err != nil {
+				interval = minDuration(interval*time.Duration(POLLING_BACKOFF_FACTOR), POLLING_MAX_BACKOFF)
+				logger.PollConfigLog.Errorf("Polling error. Retrying in %v: %v", interval, err)
+				continue
+			}
+			logger.PollConfigLog.Infoln("Configuration polled successfully")
+			interval = INITIAL_POLLING_INTERVAL
+			poller.handlePolledPlmnConfig(newPlmnConfig)
 		}
-		logger.PollConfigLog.Infoln("configuration polled successfully")
-		interval = INITIAL_POLLING_INTERVAL
-		p.handlePolledPlmnConfig(newPlmnConfig)
 	}
 }
 
@@ -111,7 +110,7 @@ func (p *nfConfigPoller) handlePolledPlmnConfig(newPlmnConfig []models.PlmnId) {
 	}
 	p.currentPlmnConfig = newPlmnConfig
 	logger.PollConfigLog.Infoln("PLMN config changed. New PLMN ID list:", p.currentPlmnConfig)
-	nrfregistration.HandleNewConfig(p.currentPlmnConfig)
+	p.plmnConfigChan <- p.currentPlmnConfig
 }
 
 func minDuration(a, b time.Duration) time.Duration {

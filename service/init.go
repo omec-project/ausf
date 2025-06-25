@@ -10,6 +10,7 @@ package service
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -21,13 +22,14 @@ import (
 
 	"github.com/omec-project/ausf/callback"
 	"github.com/omec-project/ausf/consumer"
-	"github.com/omec-project/ausf/context"
+	ausfContext "github.com/omec-project/ausf/context"
 	"github.com/omec-project/ausf/factory"
 	"github.com/omec-project/ausf/logger"
 	"github.com/omec-project/ausf/metrics"
-	"github.com/omec-project/ausf/nrfregistration"
+	"github.com/omec-project/ausf/nfregistration"
 	"github.com/omec-project/ausf/polling"
 	"github.com/omec-project/ausf/ueauthentication"
+	"github.com/omec-project/openapi/models"
 	nrfCache "github.com/omec-project/openapi/nrfcache"
 	"github.com/omec-project/util/http2_util"
 	utilLogger "github.com/omec-project/util/logger"
@@ -55,7 +57,7 @@ var ausfCLi = []cli.Flag{
 	},
 }
 
-func (*AUSF) GetCliCmd() (flags []cli.Flag) {
+func (ausf *AUSF) GetCliCmd() (flags []cli.Flag) {
 	return ausfCLi
 }
 
@@ -81,9 +83,7 @@ func (ausf *AUSF) Initialize(c *cli.Command) error {
 	}
 
 	factory.AusfConfig.CfgLocation = absPath
-	context.Init()
-	go polling.StartPollingService(factory.AusfConfig.Configuration.WebuiUri)
-
+	ausfContext.Init()
 	return nil
 }
 
@@ -132,7 +132,7 @@ func (ausf *AUSF) Start() {
 
 	go metrics.InitMetrics()
 
-	self := context.GetSelf()
+	self := ausfContext.GetSelf()
 
 	addr := fmt.Sprintf("%s:%d", self.BindingIPv4, self.SBIPort)
 
@@ -141,11 +141,16 @@ func (ausf *AUSF) Start() {
 		nrfCache.InitNrfCaching(self.NrfCacheEvictionInterval*time.Second, consumer.SendNfDiscoveryToNrf)
 	}
 
+	plmnConfigChan := make(chan []models.PlmnId, 1)
+	ctx, cancelServices := context.WithCancel(context.Background())
+	go polling.StartPollingService(ctx, factory.AusfConfig.Configuration.WebuiUri, plmnConfigChan)
+	go nfregistration.StartNfRegistrationService(ctx, plmnConfigChan)
+
 	signalChannel := make(chan os.Signal, 1)
 	signal.Notify(signalChannel, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-signalChannel
-		ausf.Terminate()
+		ausf.Terminate(cancelServices)
 		os.Exit(0)
 	}()
 
@@ -221,8 +226,9 @@ func (ausf *AUSF) Exec(c *cli.Command) error {
 	return err
 }
 
-func (ausf *AUSF) Terminate() {
+func (ausf *AUSF) Terminate(cancelServices context.CancelFunc) {
 	logger.InitLog.Infof("terminating AUSF")
-	nrfregistration.DeregisterNF()
+	nfregistration.DeregisterNF()
+	cancelServices()
 	logger.InitLog.Infoln("AUSF terminated")
 }

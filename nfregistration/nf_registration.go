@@ -6,7 +6,7 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 
-package nrfregistration
+package nfregistration
 
 import (
 	"context"
@@ -18,41 +18,57 @@ import (
 	"github.com/omec-project/openapi/models"
 )
 
+const RETRY_TIME = 10
+
 var (
 	keepAliveTimer      *time.Timer
 	keepAliveTimerMutex sync.Mutex
-	registerCtx         context.Context
-	registerCancel      context.CancelFunc
 	registerCtxMutex    sync.Mutex
 )
 
-const DEFAULT_HEARTBEAT_TIMER int32 = 60
+const (
+	DEFAULT_HEARTBEAT_TIMER int32 = 60
+)
 
-// HandleNewConfig receives the new config. If the new config is empty, the NF deregisters from the NRF.
-// Else, it registers to the NRF. It cancels registerCancel to ensure that only one registration
-// process runs at the time.
-var HandleNewConfig = func(newPlmnConfig []models.PlmnId) {
-	registerCtxMutex.Lock()
-	defer registerCtxMutex.Unlock()
+// StartNfRegistrationService starts the registration service. If the new config is empty, the NF
+// deregisters from the NRF. Else, it registers to the NRF. It cancels registerCancel to ensure
+// that only one registration process runs at the time.
+func StartNfRegistrationService(ctx context.Context, plmnConfigChan <-chan []models.PlmnId) {
+	var registerCancel context.CancelFunc
+	var registerCtx context.Context
 
-	if registerCancel != nil {
-		registerCancel()
-		logger.NrfRegistrationLog.Infoln("NF registration context cancelled")
-	}
+	for {
+		select {
+		case <-ctx.Done():
+			if registerCancel != nil {
+				registerCancel()
+			}
+			logger.NrfRegistrationLog.Infoln("NF registration service shutting down")
+			return
+		case newPlmnConfig := <-plmnConfigChan:
+			// Cancel current sync if running
+			if registerCancel != nil {
+				logger.NrfRegistrationLog.Infoln("NF registration context cancelled")
+				registerCancel()
+			}
 
-	if len(newPlmnConfig) == 0 {
-		logger.NrfRegistrationLog.Debugln("PLMN config is empty. AUSF will degister")
-		DeregisterNF()
-	} else {
-		logger.NrfRegistrationLog.Debugln("PLMN config is not empty. AUSF will update registration")
-		// Create new cancellable context for this registration
-		registerCtx, registerCancel = context.WithCancel(context.Background())
-		go registerNF(registerCtx, newPlmnConfig)
+			if len(newPlmnConfig) == 0 {
+				logger.NrfRegistrationLog.Infoln("PLMN config is empty. AUSF will degister")
+				DeregisterNF()
+			} else {
+				logger.NrfRegistrationLog.Infoln("PLMN config is not empty. AUSF will update registration")
+				registerCtx, registerCancel = context.WithCancel(context.Background())
+				// Create new cancellable context for this registration
+				go registerNF(registerCtx, newPlmnConfig)
+			}
+		}
 	}
 }
 
 // registerNF sends a RegisterNFInstance. If it fails, it keeps retrying, until the context is cancelled by HandleNewConfig.
 var registerNF = func(ctx context.Context, newPlmnConfig []models.PlmnId) {
+	registerCtxMutex.Lock()
+	defer registerCtxMutex.Unlock()
 	for {
 		select {
 		case <-ctx.Done():
@@ -62,7 +78,7 @@ var registerNF = func(ctx context.Context, newPlmnConfig []models.PlmnId) {
 			nfProfile, _, err := consumer.SendRegisterNFInstance(newPlmnConfig)
 			if err != nil {
 				logger.NrfRegistrationLog.Errorln("register AUSF instance to NRF failed. Will retry.", err.Error())
-				time.Sleep(10 * time.Second)
+				time.Sleep(RETRY_TIME * time.Second)
 				continue
 			}
 			logger.NrfRegistrationLog.Infoln("register AUSF instance to NRF with updated profile succeeded")
@@ -99,7 +115,6 @@ func heartbeatNF(plmnConfig []models.PlmnId) {
 			logger.NrfRegistrationLog.Errorln("register AUSF instance error:", err.Error())
 		}
 		logger.NrfRegistrationLog.Infoln("register AUSF instance to NRF with updated profile succeeded")
-
 	} else {
 		logger.NrfRegistrationLog.Infoln("AUSF update NF instance (heartbeat) succeeded")
 	}

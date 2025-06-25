@@ -16,75 +16,74 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
-	"github.com/omec-project/ausf/nrfregistration"
 	"github.com/omec-project/openapi/models"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestHandlePolledPlmnConfig_ConfigChanged_CallsNRFRegistration(t *testing.T) {
+func TestHandlePolledPlmnConfig_ConfigChanged_ConfigurationIsUpdatedAndSendToChannel(t *testing.T) {
 	testCases := []struct {
 		name          string
 		newPlmnConfig []models.PlmnId
 	}{
 		{
-			name:          "ConfigChangedOneElement",
+			name:          "One element",
 			newPlmnConfig: []models.PlmnId{{Mcc: "001", Mnc: "02"}},
 		},
 		{
-			name:          "ConfigChangedTwoElements",
+			name:          "Two elements",
 			newPlmnConfig: []models.PlmnId{{Mcc: "001", Mnc: "02"}, {Mcc: "022", Mnc: "02"}},
 		},
 		{
-			name:          "EmptyConfig",
+			name:          "Empty config",
 			newPlmnConfig: []models.PlmnId{},
 		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			originalFunction := nrfregistration.HandleNewConfig
-			called := false
-			nrfregistration.HandleNewConfig = func(newPlmnConfig []models.PlmnId) { called = true }
-			defer func() { nrfregistration.HandleNewConfig = originalFunction }()
-
+			ch := make(chan []models.PlmnId, 1)
 			poller := nfConfigPoller{
 				currentPlmnConfig: []models.PlmnId{{Mcc: "001", Mnc: "01"}},
+				plmnConfigChan:    ch,
 			}
 			poller.handlePolledPlmnConfig(tc.newPlmnConfig)
 
 			if !reflect.DeepEqual(poller.currentPlmnConfig, tc.newPlmnConfig) {
 				t.Errorf("Expected PLMN config to be updated to %v, got %v", tc.newPlmnConfig, poller.currentPlmnConfig)
 			}
-			if !called {
-				t.Error("Expected nrfregistration.HandleNewConfig to be called")
+			select {
+			case receivedPlmnConfig := <-ch:
+				if !reflect.DeepEqual(receivedPlmnConfig, tc.newPlmnConfig) {
+					t.Errorf("Expected config %v, got %v", tc.newPlmnConfig, receivedPlmnConfig)
+				}
+			case <-time.After(100 * time.Millisecond):
+				t.Errorf("Expected config to be sent to channel, but it was not")
 			}
 		})
 	}
 }
 
-func TestHandlePolledPlmnConfig_ConfigDidNotChanged_DoesNotCallNRFRegistration(t *testing.T) {
+func TestHandlePolledPlmnConfig_ConfigDidNotChanged_ConfigIsNotSendToChannel(t *testing.T) {
 	testCases := []struct {
 		name          string
 		newPlmnConfig []models.PlmnId
 	}{
 		{
-			name:          "SameConfig",
+			name:          "Same config",
 			newPlmnConfig: []models.PlmnId{{Mcc: "001", Mnc: "02"}},
 		},
 		{
-			name:          "EmptyConfig",
+			name:          "Empty config",
 			newPlmnConfig: []models.PlmnId{},
 		},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			originalFunction := nrfregistration.HandleNewConfig
-			called := false
-			nrfregistration.HandleNewConfig = func(newPlmnConfig []models.PlmnId) { called = true }
-			defer func() { nrfregistration.HandleNewConfig = originalFunction }()
-
+			ch := make(chan []models.PlmnId, 1)
 			poller := nfConfigPoller{
 				currentPlmnConfig: tc.newPlmnConfig,
+				plmnConfigChan:    ch,
 			}
 			poller.handlePolledPlmnConfig(tc.newPlmnConfig)
 
@@ -92,8 +91,11 @@ func TestHandlePolledPlmnConfig_ConfigDidNotChanged_DoesNotCallNRFRegistration(t
 				t.Errorf("Expected PLMN list to remain unchanged, got %v", poller.currentPlmnConfig)
 			}
 
-			if called {
-				t.Error("Expected nrfregistration.HandleNewConfig not to be called")
+			select {
+			case receivedPlmnConfig := <-ch:
+				t.Errorf("Config was not expected, got %v", receivedPlmnConfig)
+			default:
+				// Expected case
 			}
 		})
 	}
@@ -104,7 +106,10 @@ func TestFetchPlmnConfig(t *testing.T) {
 		{Mcc: "001", Mnc: "01"},
 		{Mcc: "002", Mnc: "02"},
 	}
-	validJson, _ := json.Marshal(validPlmnList)
+	validJson, err := json.Marshal(validPlmnList)
+	if err != nil {
+		t.Fail()
+	}
 
 	tests := []struct {
 		name           string
@@ -167,7 +172,10 @@ func TestFetchPlmnConfig(t *testing.T) {
 
 				w.Header().Set("Content-Type", tc.contentType)
 				w.WriteHeader(tc.statusCode)
-				_, _ = w.Write([]byte(tc.responseBody))
+				_, err = w.Write([]byte(tc.responseBody))
+				if err != nil {
+					t.Fail()
+				}
 			}
 			server := httptest.NewServer(http.HandlerFunc(handler))
 			defer server.Close()
