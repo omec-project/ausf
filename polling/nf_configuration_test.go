@@ -66,7 +66,7 @@ func TestStartPollingService_RetryAfterFailure(t *testing.T) {
 	plmnChan := make(chan []models.PlmnId, 1)
 	go StartPollingService(ctx, "http://dummy", plmnChan)
 
-	time.Sleep(3 * INITIAL_POLLING_INTERVAL)
+	time.Sleep(4 * INITIAL_POLLING_INTERVAL)
 	cancel()
 	<-ctx.Done()
 
