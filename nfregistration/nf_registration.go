@@ -65,13 +65,13 @@ func StartNfRegistrationService(ctx context.Context, plmnConfigChan <-chan []mod
 	}
 }
 
-// registerNF sends a RegisterNFInstance. If it fails, it keeps retrying, until the context is cancelled by HandleNewConfig.
-var registerNF = func(ctx context.Context, newPlmnConfig []models.PlmnId) {
+// registerNF sends a RegisterNFInstance. If it fails, it keeps retrying, until the context is cancelled by StartNfRegistrationService
+var registerNF = func(registerCtx context.Context, newPlmnConfig []models.PlmnId) {
 	registerCtxMutex.Lock()
 	defer registerCtxMutex.Unlock()
 	for {
 		select {
-		case <-ctx.Done():
+		case <-registerCtx.Done():
 			logger.NrfRegistrationLog.Infoln("no-op. Registration context was cancelled")
 			return
 		default:
@@ -94,6 +94,7 @@ var registerNF = func(ctx context.Context, newPlmnConfig []models.PlmnId) {
 func heartbeatNF(plmnConfig []models.PlmnId) {
 	keepAliveTimerMutex.Lock()
 	if keepAliveTimer == nil {
+		keepAliveTimerMutex.Unlock()
 		logger.NrfRegistrationLog.Infoln("heartbeat timer has been stopped, heartbeat will not be sent to NRF")
 		return
 	}
@@ -138,13 +139,9 @@ var DeregisterNF = func() {
 	keepAliveTimerMutex.Lock()
 	stopKeepAliveTimer()
 	keepAliveTimerMutex.Unlock()
-	problemDetails, err := consumer.SendDeregisterNFInstance()
+	err := consumer.SendDeregisterNFInstance()
 	if err != nil {
 		logger.NrfRegistrationLog.Warnln("deregister instance from NRF error:", err.Error())
-		return
-	}
-	if problemDetails != nil {
-		logger.NrfRegistrationLog.Warnln("deregister instance from NRF problem details:", problemDetails)
 		return
 	}
 	logger.NrfRegistrationLog.Infoln("deregister instance from NRF successful")

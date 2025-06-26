@@ -19,30 +19,23 @@ import (
 )
 
 func TestNfRegistrationService_EmptyConfig_DeregisterNF_StopTimer(t *testing.T) {
-	var isDeregisterNFCalled bool
+	isDeregisterNFCalled := false
 	testCases := []struct {
 		name                         string
-		sendDeregisterNFInstanceMock func() (*models.ProblemDetails, error)
+		sendDeregisterNFInstanceMock func() error
 	}{
 		{
 			name: "Success",
-			sendDeregisterNFInstanceMock: func() (*models.ProblemDetails, error) {
+			sendDeregisterNFInstanceMock: func() error {
 				isDeregisterNFCalled = true
-				return nil, nil
+				return nil
 			},
 		},
 		{
 			name: "ErrorInDeregisterNFInstance",
-			sendDeregisterNFInstanceMock: func() (*models.ProblemDetails, error) {
+			sendDeregisterNFInstanceMock: func() error {
 				isDeregisterNFCalled = true
-				return nil, errors.New("mock error")
-			},
-		},
-		{
-			name: "ProblemDetailsInDeregisterNFInstance",
-			sendDeregisterNFInstanceMock: func() (*models.ProblemDetails, error) {
-				isDeregisterNFCalled = true
-				return &models.ProblemDetails{}, nil
+				return errors.New("mock error")
 			},
 		},
 	}
@@ -62,7 +55,6 @@ func TestNfRegistrationService_EmptyConfig_DeregisterNF_StopTimer(t *testing.T) 
 			}()
 
 			consumer.SendDeregisterNFInstance = tc.sendDeregisterNFInstanceMock
-
 			registerNF = func(ctx context.Context, newPlmnConfig []models.PlmnId) {
 				isRegisterNFCalled = true
 			}
@@ -73,16 +65,14 @@ func TestNfRegistrationService_EmptyConfig_DeregisterNF_StopTimer(t *testing.T) 
 			go StartNfRegistrationService(ctx, ch)
 			ch <- []models.PlmnId{}
 
-			time.Sleep(1 * time.Second)
+			time.Sleep(100 * time.Millisecond)
 
 			if keepAliveTimer != nil {
 				t.Errorf("expected keepAliveTimer to be nil after stopKeepAliveTimer")
 			}
-
 			if !isDeregisterNFCalled {
 				t.Errorf("expected SendDeregisterNFInstance to be called")
 			}
-
 			if isRegisterNFCalled {
 				t.Errorf("expected registerNF not to be called")
 			}
@@ -111,13 +101,13 @@ func TestNfRegistrationService_ConfigChanged_RegisterNFSuccess_StartTimer(t *tes
 	go StartNfRegistrationService(ctx, ch)
 	ch <- []models.PlmnId{{Mcc: "001", Mnc: "01"}}
 
-	time.Sleep(1 * time.Second)
+	time.Sleep(100 * time.Millisecond)
 	if keepAliveTimer == nil {
 		t.Error("expected keepAliveTimer to be initialized by startKeepAliveTimer")
 	}
 }
 
-func TestNfRegistrationService_ConfigChanged_RegisterNFFails(t *testing.T) {
+func TestNfRegistrationService_ConfigChanged_RetryIfRegisterNFFails(t *testing.T) {
 	originalSendRegisterNFInstance := consumer.SendRegisterNFInstance
 	defer func() {
 		consumer.SendRegisterNFInstance = originalSendRegisterNFInstance
@@ -139,11 +129,12 @@ func TestNfRegistrationService_ConfigChanged_RegisterNFFails(t *testing.T) {
 	go StartNfRegistrationService(ctx, ch)
 	ch <- []models.PlmnId{{Mcc: "001", Mnc: "01"}}
 
-	time.Sleep((RETRY_TIME*2 + 1) * time.Second)
+	time.Sleep(RETRY_TIME * 2 * time.Second)
 
 	if called < 2 {
 		t.Error("Expected to retry register to NRF")
 	}
+	t.Logf("Tried %v times", called)
 }
 
 func TestHeartbeatNF_Success(t *testing.T) {
@@ -163,6 +154,7 @@ func TestHeartbeatNF_Success(t *testing.T) {
 		return models.NfProfile{}, nil, nil
 	}
 	consumer.SendRegisterNFInstance = func(plmnConfig []models.PlmnId) (models.NfProfile, string, error) {
+		calledRegister = true
 		profile := models.NfProfile{HeartBeatTimer: 60}
 		return profile, "", nil
 	}
@@ -172,7 +164,6 @@ func TestHeartbeatNF_Success(t *testing.T) {
 	if calledRegister {
 		t.Errorf("expected registerNF to be called on error")
 	}
-
 	if keepAliveTimer == nil {
 		t.Error("expected keepAliveTimer to be initialized by startKeepAliveTimer")
 	}
@@ -207,7 +198,6 @@ func TestHeartbeatNF_RegistersOnError(t *testing.T) {
 	if !calledRegister {
 		t.Errorf("expected registerNF to be called on error")
 	}
-
 	if keepAliveTimer == nil {
 		t.Error("expected keepAliveTimer to be initialized by startKeepAliveTimer")
 	}

@@ -34,10 +34,9 @@ type nfConfigPoller struct {
 // StartPollingService initializes the polling service and starts it. The polling service
 // continuously makes a HTTP GET request to the webconsole and updates the network configuration
 func StartPollingService(ctx context.Context, webuiUri string, plmnConfigChan chan<- []models.PlmnId) {
-	plmnConfig := []models.PlmnId{}
 	poller := nfConfigPoller{
 		plmnConfigChan:    plmnConfigChan,
-		currentPlmnConfig: plmnConfig,
+		currentPlmnConfig: []models.PlmnId{},
 	}
 	interval := INITIAL_POLLING_INTERVAL
 	pollingEndpoint := webuiUri + POLLING_PATH
@@ -61,8 +60,8 @@ func StartPollingService(ctx context.Context, webuiUri string, plmnConfigChan ch
 	}
 }
 
-func fetchPlmnConfig(pollingEndpoint string) ([]models.PlmnId, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+var fetchPlmnConfig = func(pollingEndpoint string) ([]models.PlmnId, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), INITIAL_POLLING_INTERVAL*time.Second)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, pollingEndpoint, nil)

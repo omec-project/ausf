@@ -10,7 +10,9 @@
 package polling
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -21,6 +23,58 @@ import (
 	"github.com/omec-project/openapi/models"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestStartPollingService_Success(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	originalFetchPlmnConfig := fetchPlmnConfig
+	defer func() {
+		fetchPlmnConfig = originalFetchPlmnConfig
+		cancel()
+	}()
+
+	expectedConfig := []models.PlmnId{{Mcc: "001", Mnc: "01"}}
+	fetchPlmnConfig = func(pollingEndpoint string) ([]models.PlmnId, error) {
+		return expectedConfig, nil
+	}
+	pollingChan := make(chan []models.PlmnId, 1)
+
+	go StartPollingService(ctx, "http://dummy", pollingChan)
+	time.Sleep(INITIAL_POLLING_INTERVAL)
+
+	select {
+	case result := <-pollingChan:
+		if !reflect.DeepEqual(result, expectedConfig) {
+			t.Errorf("Expected %+v, got %+v", expectedConfig, result)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Errorf("Timeout waiting for PLMN config")
+	}
+}
+
+func TestStartPollingService_RetryAfterFailure(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	originalFetchPlmnConfig := fetchPlmnConfig
+	defer func() {
+		fetchPlmnConfig = originalFetchPlmnConfig
+	}()
+
+	callCount := 0
+	fetchPlmnConfig = func(pollingEndpoint string) ([]models.PlmnId, error) {
+		callCount++
+		return nil, errors.New("mock failure")
+	}
+	plmnChan := make(chan []models.PlmnId, 1)
+	go StartPollingService(ctx, "http://dummy", plmnChan)
+
+	time.Sleep(3 * INITIAL_POLLING_INTERVAL)
+	cancel()
+	<-ctx.Done()
+
+	if callCount < 2 {
+		t.Error("Expected to retry after failure")
+	}
+	t.Logf("Tried %v times", callCount)
+}
 
 func TestHandlePolledPlmnConfig_ConfigChanged_ConfigurationIsUpdatedAndSendToChannel(t *testing.T) {
 	testCases := []struct {
@@ -94,7 +148,7 @@ func TestHandlePolledPlmnConfig_ConfigDidNotChanged_ConfigIsNotSendToChannel(t *
 			select {
 			case receivedPlmnConfig := <-ch:
 				t.Errorf("Config was not expected, got %v", receivedPlmnConfig)
-			default:
+			case <-time.After(100 * time.Millisecond):
 				// Expected case
 			}
 		})

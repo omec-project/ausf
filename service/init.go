@@ -133,7 +133,6 @@ func (ausf *AUSF) Start() {
 	go metrics.InitMetrics()
 
 	self := ausfContext.GetSelf()
-
 	addr := fmt.Sprintf("%s:%d", self.BindingIPv4, self.SBIPort)
 
 	if self.EnableNrfCaching {
