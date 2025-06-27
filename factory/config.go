@@ -10,7 +10,6 @@
 package factory
 
 import (
-	"github.com/omec-project/openapi/models"
 	"github.com/omec-project/util/logger"
 )
 
@@ -37,14 +36,13 @@ const (
 )
 
 type Configuration struct {
-	Sbi                      *Sbi            `yaml:"sbi,omitempty"`
-	ServiceNameList          []string        `yaml:"serviceNameList,omitempty"`
-	NrfUri                   string          `yaml:"nrfUri,omitempty"`
-	WebuiUri                 string          `yaml:"webuiUri"`
-	GroupId                  string          `yaml:"groupId,omitempty"`
-	PlmnSupportList          []models.PlmnId `yaml:"plmnSupportList,omitempty"`
-	EnableNrfCaching         bool            `yaml:"enableNrfCaching"`
-	NrfCacheEvictionInterval int             `yaml:"nrfCacheEvictionInterval,omitempty"`
+	Sbi                      *Sbi     `yaml:"sbi,omitempty"`
+	ServiceNameList          []string `yaml:"serviceNameList,omitempty"`
+	NrfUri                   string   `yaml:"nrfUri,omitempty"`
+	WebuiUri                 string   `yaml:"webuiUri"`
+	GroupId                  string   `yaml:"groupId,omitempty"`
+	EnableNrfCaching         bool     `yaml:"enableNrfCaching"`
+	NrfCacheEvictionInterval int      `yaml:"nrfCacheEvictionInterval,omitempty"`
 }
 
 type Sbi struct {

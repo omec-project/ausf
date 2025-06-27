@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: 2025 Canonical Ltd
 // SPDX-FileCopyrightText: 2024 Intel Corporation
 // SPDX-FileCopyrightText: 2021 Open Networking Foundation <info@opennetworking.org>
 // Copyright 2019 free5GC.org
@@ -9,6 +10,7 @@ package service
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -20,13 +22,13 @@ import (
 
 	"github.com/omec-project/ausf/callback"
 	"github.com/omec-project/ausf/consumer"
-	"github.com/omec-project/ausf/context"
+	ausfContext "github.com/omec-project/ausf/context"
 	"github.com/omec-project/ausf/factory"
 	"github.com/omec-project/ausf/logger"
 	"github.com/omec-project/ausf/metrics"
+	"github.com/omec-project/ausf/nfregistration"
+	"github.com/omec-project/ausf/polling"
 	"github.com/omec-project/ausf/ueauthentication"
-	grpcClient "github.com/omec-project/config5g/proto/client"
-	protos "github.com/omec-project/config5g/proto/sdcoreConfig"
 	"github.com/omec-project/openapi/models"
 	nrfCache "github.com/omec-project/openapi/nrfcache"
 	"github.com/omec-project/util/http2_util"
@@ -55,18 +57,7 @@ var ausfCLi = []cli.Flag{
 	},
 }
 
-var (
-	KeepAliveTimer      *time.Timer
-	KeepAliveTimerMutex sync.Mutex
-)
-
-var ConfigPodTrigger chan bool
-
-func init() {
-	ConfigPodTrigger = make(chan bool)
-}
-
-func (*AUSF) GetCliCmd() (flags []cli.Flag) {
+func (ausf *AUSF) GetCliCmd() (flags []cli.Flag) {
 	return ausfCLi
 }
 
@@ -92,71 +83,8 @@ func (ausf *AUSF) Initialize(c *cli.Command) error {
 	}
 
 	factory.AusfConfig.CfgLocation = absPath
-
-	if os.Getenv("MANAGED_BY_CONFIG_POD") == "true" {
-		logger.InitLog.Infoln("MANAGED_BY_CONFIG_POD is true")
-		go manageGrpcClient(factory.AusfConfig.Configuration.WebuiUri, ausf)
-	} else {
-		go func() {
-			logger.InitLog.Infoln("use helm chart config")
-			ConfigPodTrigger <- true
-		}()
-	}
+	ausfContext.Init()
 	return nil
-}
-
-// manageGrpcClient connects the config pod GRPC server and subscribes the config changes.
-// Then it updates AUSF configuration.
-func manageGrpcClient(webuiUri string, ausf *AUSF) {
-	var configChannel chan *protos.NetworkSliceResponse
-	var client grpcClient.ConfClient
-	var stream protos.ConfigService_NetworkSliceSubscribeClient
-	var err error
-	count := 0
-	for {
-		if client != nil {
-			if client.CheckGrpcConnectivity() != "READY" {
-				time.Sleep(time.Second * 30)
-				count++
-				if count > 5 {
-					err = client.GetConfigClientConn().Close()
-					if err != nil {
-						logger.InitLog.Infof("failing ConfigClient is not closed properly: %+v", err)
-					}
-					client = nil
-					count = 0
-				}
-				logger.InitLog.Infoln("checking the connectivity readiness")
-				continue
-			}
-
-			if stream == nil {
-				stream, err = client.SubscribeToConfigServer()
-				if err != nil {
-					logger.InitLog.Infof("failing SubscribeToConfigServer: %+v", err)
-					continue
-				}
-			}
-
-			if configChannel == nil {
-				configChannel = client.PublishOnConfigChange(true, stream)
-				logger.InitLog.Infoln("PublishOnConfigChange is triggered")
-				go ausf.updateConfig(configChannel)
-				logger.InitLog.Infoln("AUSF updateConfig is triggered")
-			}
-
-			time.Sleep(time.Second * 5) // Fixes (avoids) 100% CPU utilization
-		} else {
-			client, err = grpcClient.ConnectToConfigServer(webuiUri)
-			stream = nil
-			configChannel = nil
-			logger.InitLog.Infoln("connecting to config server")
-			if err != nil {
-				logger.InitLog.Errorf("%+v", err)
-			}
-			continue
-		}
-	}
 }
 
 func (ausf *AUSF) setLogLevel() {
@@ -195,60 +123,6 @@ func (ausf *AUSF) FilterCli(c *cli.Command) (args []string) {
 	return args
 }
 
-func (ausf *AUSF) updateConfig(commChannel chan *protos.NetworkSliceResponse) bool {
-	var minConfig bool
-	context := context.GetSelf()
-	for rsp := range commChannel {
-		logger.GrpcLog.Infoln("received updateConfig in the ausf app:", rsp)
-		for _, ns := range rsp.NetworkSlice {
-			logger.GrpcLog.Infoln("network Slice Name", ns.Name)
-			if ns.Site != nil {
-				temp := models.PlmnId{}
-				found := false
-				logger.GrpcLog.Infoln("network slice has site name present")
-				site := ns.Site
-				logger.GrpcLog.Infoln("site name", site.SiteName)
-				if site.Plmn != nil {
-					temp.Mcc = site.Plmn.Mcc
-					temp.Mnc = site.Plmn.Mnc
-					logger.GrpcLog.Infoln("plmn mcc", site.Plmn.Mcc)
-					for _, item := range context.PlmnList {
-						if item.Mcc == temp.Mcc && item.Mnc == temp.Mnc {
-							found = true
-							break
-						}
-					}
-					if !found {
-						context.PlmnList = append(context.PlmnList, temp)
-						logger.GrpcLog.Infoln("plmn added in the context", context.PlmnList)
-					}
-				} else {
-					logger.GrpcLog.Infoln("plmn not present in the message ")
-				}
-			}
-		}
-		if !minConfig {
-			// first slice Created
-			if len(context.PlmnList) > 0 {
-				minConfig = true
-				ConfigPodTrigger <- true
-				logger.GrpcLog.Infoln("send config trigger to main routine first time config")
-			}
-		} else {
-			// all slices deleted
-			if len(context.PlmnList) == 0 {
-				minConfig = false
-				ConfigPodTrigger <- false
-				logger.GrpcLog.Infoln("send config trigger to main routine config deleted")
-			} else {
-				ConfigPodTrigger <- true
-				logger.GrpcLog.Infoln("send config trigger to main routine config updated")
-			}
-		}
-	}
-	return true
-}
-
 func (ausf *AUSF) Start() {
 	logger.InitLog.Infoln("server started")
 
@@ -258,23 +132,32 @@ func (ausf *AUSF) Start() {
 
 	go metrics.InitMetrics()
 
-	context.Init()
-	self := context.GetSelf()
-
+	self := ausfContext.GetSelf()
 	addr := fmt.Sprintf("%s:%d", self.BindingIPv4, self.SBIPort)
 
 	if self.EnableNrfCaching {
 		logger.InitLog.Infoln("enable NRF caching feature")
 		nrfCache.InitNrfCaching(self.NrfCacheEvictionInterval*time.Second, consumer.SendNfDiscoveryToNrf)
 	}
-	// Register to NRF
-	go ausf.RegisterNF()
+
+	plmnConfigChan := make(chan []models.PlmnId, 1)
+	ctx, cancelServices := context.WithCancel(context.Background())
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		polling.StartPollingService(ctx, factory.AusfConfig.Configuration.WebuiUri, plmnConfigChan)
+	}()
+	go func() {
+		defer wg.Done()
+		nfregistration.StartNfRegistrationService(ctx, plmnConfigChan)
+	}()
 
 	signalChannel := make(chan os.Signal, 1)
 	signal.Notify(signalChannel, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-signalChannel
-		ausf.Terminate()
+		ausf.Terminate(cancelServices, &wg)
 		os.Exit(0)
 	}()
 
@@ -350,133 +233,10 @@ func (ausf *AUSF) Exec(c *cli.Command) error {
 	return err
 }
 
-func (ausf *AUSF) Terminate() {
+func (ausf *AUSF) Terminate(cancelServices context.CancelFunc, wg *sync.WaitGroup) {
 	logger.InitLog.Infof("terminating AUSF")
-	// deregister with NRF
-	problemDetails, err := consumer.SendDeregisterNFInstance()
-	if problemDetails != nil {
-		logger.InitLog.Errorf("deregister NF instance Failed Problem[%+v]", problemDetails)
-	} else if err != nil {
-		logger.InitLog.Errorf("deregister NF instance Error[%+v]", err)
-	} else {
-		logger.InitLog.Infoln("deregister from NRF successfully")
-	}
-
+	cancelServices()
+	nfregistration.DeregisterNF()
+	wg.Wait()
 	logger.InitLog.Infoln("AUSF terminated")
-}
-
-func (ausf *AUSF) StartKeepAliveTimer(nfProfile models.NfProfile) {
-	KeepAliveTimerMutex.Lock()
-	defer KeepAliveTimerMutex.Unlock()
-	ausf.StopKeepAliveTimer()
-	if nfProfile.HeartBeatTimer == 0 {
-		nfProfile.HeartBeatTimer = 60
-	}
-	logger.InitLog.Infof("started KeepAlive Timer: %v sec", nfProfile.HeartBeatTimer)
-	// AfterFunc starts timer and waits for KeepAliveTimer to elapse and then calls ausf.UpdateNF function
-	KeepAliveTimer = time.AfterFunc(time.Duration(nfProfile.HeartBeatTimer)*time.Second, ausf.UpdateNF)
-}
-
-func (ausf *AUSF) StopKeepAliveTimer() {
-	if KeepAliveTimer != nil {
-		logger.InitLog.Infoln("stopped KeepAlive Timer")
-		KeepAliveTimer.Stop()
-		KeepAliveTimer = nil
-	}
-}
-
-func (ausf *AUSF) BuildAndSendRegisterNFInstance() (models.NfProfile, error) {
-	self := context.GetSelf()
-	profile, err := consumer.BuildNFInstance(self)
-	if err != nil {
-		logger.InitLog.Errorf("build AUSF Profile Error: %v", err)
-		return profile, err
-	}
-	logger.InitLog.Infof("AUSF Profile Registering to NRF: %v", profile)
-	// Indefinite attempt to register until success
-	profile, _, self.NfId, err = consumer.SendRegisterNFInstance(self.NrfUri, self.NfId, profile)
-	return profile, err
-}
-
-// UpdateNF is the callback function, this is called when keepalivetimer elapsed
-func (ausf *AUSF) UpdateNF() {
-	KeepAliveTimerMutex.Lock()
-	defer KeepAliveTimerMutex.Unlock()
-	if KeepAliveTimer == nil {
-		logger.InitLog.Warnln("KeepAlive timer has been stopped")
-		return
-	}
-	// setting default value 30 sec
-	var heartBeatTimer int32 = 60
-	pitem := models.PatchItem{
-		Op:    "replace",
-		Path:  "/nfStatus",
-		Value: "REGISTERED",
-	}
-	var patchItem []models.PatchItem
-	patchItem = append(patchItem, pitem)
-	nfProfile, problemDetails, err := consumer.SendUpdateNFInstance(patchItem)
-	if problemDetails != nil {
-		logger.InitLog.Errorf("AUSF update to NRF ProblemDetails[%v]", problemDetails)
-		// 5xx response from NRF, 404 Not Found, 400 Bad Request
-		if (problemDetails.Status/100) == 5 ||
-			problemDetails.Status == 404 || problemDetails.Status == 400 {
-			// register with NRF full profile
-			nfProfile, err = ausf.BuildAndSendRegisterNFInstance()
-			if err != nil {
-				logger.InitLog.Errorf("AUSF register to NRF Error[%s]", err.Error())
-			}
-		}
-	} else if err != nil {
-		logger.InitLog.Errorf("AUSF update to NRF Error[%s]", err.Error())
-		nfProfile, err = ausf.BuildAndSendRegisterNFInstance()
-		if err != nil {
-			logger.InitLog.Errorf("AUSF register to NRF Error[%s]", err.Error())
-		}
-	}
-
-	if nfProfile.HeartBeatTimer != 0 {
-		// use hearbeattimer value with received timer value from NRF
-		heartBeatTimer = nfProfile.HeartBeatTimer
-	}
-	logger.InitLog.Debugf("restarted KeepAlive Timer: %v sec", heartBeatTimer)
-	// restart timer with received HeartBeatTimer value
-	KeepAliveTimer = time.AfterFunc(time.Duration(heartBeatTimer)*time.Second, ausf.UpdateNF)
-}
-
-func (ausf *AUSF) RegisterNF() {
-	for msg := range ConfigPodTrigger {
-		if msg {
-			logger.InitLog.Infof("minimum configuration from config pod available %v", msg)
-			self := context.GetSelf()
-			profile, err := consumer.BuildNFInstance(self)
-			if err != nil {
-				logger.InitLog.Errorln("build AUSF Profile Error")
-			}
-			var prof models.NfProfile
-			prof, _, self.NfId, err = consumer.SendRegisterNFInstance(self.NrfUri, self.NfId, profile)
-			if err != nil {
-				logger.InitLog.Errorf("AUSF register to NRF Error[%s]", err.Error())
-			} else {
-				// stop keepAliveTimer if its running
-				ausf.StartKeepAliveTimer(prof)
-				logger.CfgLog.Infoln("sent Register NF Instance with updated profile")
-			}
-		} else {
-			// stopping keepAlive timer
-			KeepAliveTimerMutex.Lock()
-			ausf.StopKeepAliveTimer()
-			KeepAliveTimerMutex.Unlock()
-			logger.InitLog.Infoln("AUSF is not having Minimum Config to Register/Update to NRF")
-			problemDetails, err := consumer.SendDeregisterNFInstance()
-			if problemDetails != nil {
-				logger.InitLog.Errorf("deregister Instance to NRF failed, Problem: [+%v]", problemDetails)
-			}
-			if err != nil {
-				logger.InitLog.Errorf("deregister Instance to NRF Error[%s]", err.Error())
-			} else {
-				logger.InitLog.Infoln("deregister from NRF successfully")
-			}
-		}
-	}
 }
