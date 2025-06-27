@@ -142,14 +142,22 @@ func (ausf *AUSF) Start() {
 
 	plmnConfigChan := make(chan []models.PlmnId, 1)
 	ctx, cancelServices := context.WithCancel(context.Background())
-	go polling.StartPollingService(ctx, factory.AusfConfig.Configuration.WebuiUri, plmnConfigChan)
-	go nfregistration.StartNfRegistrationService(ctx, plmnConfigChan)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		polling.StartPollingService(ctx, factory.AusfConfig.Configuration.WebuiUri, plmnConfigChan)
+	}()
+	go func() {
+		defer wg.Done()
+		nfregistration.StartNfRegistrationService(ctx, plmnConfigChan)
+	}()
 
 	signalChannel := make(chan os.Signal, 1)
 	signal.Notify(signalChannel, os.Interrupt, syscall.SIGTERM)
 	go func() {
 		<-signalChannel
-		ausf.Terminate(cancelServices)
+		ausf.Terminate(cancelServices, &wg)
 		os.Exit(0)
 	}()
 
@@ -225,9 +233,10 @@ func (ausf *AUSF) Exec(c *cli.Command) error {
 	return err
 }
 
-func (ausf *AUSF) Terminate(cancelServices context.CancelFunc) {
+func (ausf *AUSF) Terminate(cancelServices context.CancelFunc, wg *sync.WaitGroup) {
 	logger.InitLog.Infof("terminating AUSF")
-	nfregistration.DeregisterNF()
 	cancelServices()
+	nfregistration.DeregisterNF()
+	wg.Wait()
 	logger.InitLog.Infoln("AUSF terminated")
 }

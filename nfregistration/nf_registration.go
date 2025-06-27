@@ -18,8 +18,6 @@ import (
 	"github.com/omec-project/openapi/models"
 )
 
-const RETRY_TIME = 10
-
 var (
 	keepAliveTimer      *time.Timer
 	keepAliveTimerMutex sync.Mutex
@@ -28,6 +26,7 @@ var (
 
 const (
 	DEFAULT_HEARTBEAT_TIMER int32 = 60
+	RETRY_TIME                    = 10 * time.Second
 )
 
 // StartNfRegistrationService starts the registration service. If the new config is empty, the NF
@@ -69,16 +68,17 @@ func StartNfRegistrationService(ctx context.Context, plmnConfigChan <-chan []mod
 var registerNF = func(registerCtx context.Context, newPlmnConfig []models.PlmnId) {
 	registerCtxMutex.Lock()
 	defer registerCtxMutex.Unlock()
+	interval := 0 * time.Second
 	for {
 		select {
 		case <-registerCtx.Done():
 			logger.NrfRegistrationLog.Infoln("no-op. Registration context was cancelled")
 			return
-		default:
+		case <-time.After(interval):
 			nfProfile, _, err := consumer.SendRegisterNFInstance(newPlmnConfig)
 			if err != nil {
 				logger.NrfRegistrationLog.Errorln("register AUSF instance to NRF failed. Will retry.", err.Error())
-				time.Sleep(RETRY_TIME * time.Second)
+				interval = RETRY_TIME
 				continue
 			}
 			logger.NrfRegistrationLog.Infoln("register AUSF instance to NRF with updated profile succeeded")
@@ -114,8 +114,9 @@ func heartbeatNF(plmnConfig []models.PlmnId) {
 		nfProfile, _, err = consumer.SendRegisterNFInstance(plmnConfig)
 		if err != nil {
 			logger.NrfRegistrationLog.Errorln("register AUSF instance error:", err.Error())
+		} else {
+			logger.NrfRegistrationLog.Infoln("register AUSF instance to NRF with updated profile succeeded")
 		}
-		logger.NrfRegistrationLog.Infoln("register AUSF instance to NRF with updated profile succeeded")
 	} else {
 		logger.NrfRegistrationLog.Infoln("AUSF update NF instance (heartbeat) succeeded")
 	}
