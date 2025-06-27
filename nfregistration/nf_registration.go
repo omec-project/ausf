@@ -126,8 +126,7 @@ func heartbeatNF(plmnConfig []models.PlmnId) {
 func shouldRegister(problemDetails *models.ProblemDetails, err error) bool {
 	if problemDetails != nil {
 		logger.NrfRegistrationLog.Warnln("AUSF update NF instance (heartbeat) problem details:", problemDetails)
-		status := problemDetails.Status
-		return (status/100) == 5 || status == 404 || status == 400
+		return true
 	}
 	if err != nil {
 		logger.NrfRegistrationLog.Warnln("AUSF update NF instance (heartbeat) error:", err.Error())
