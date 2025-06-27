@@ -33,7 +33,7 @@ func TestStartPollingService_Success(t *testing.T) {
 	}()
 
 	expectedConfig := []models.PlmnId{{Mcc: "001", Mnc: "01"}}
-	fetchPlmnConfig = func(poller nfConfigPoller, pollingEndpoint string) ([]models.PlmnId, error) {
+	fetchPlmnConfig = func(poller *nfConfigPoller, pollingEndpoint string) ([]models.PlmnId, error) {
 		return expectedConfig, nil
 	}
 	pollingChan := make(chan []models.PlmnId, 1)
@@ -59,7 +59,7 @@ func TestStartPollingService_RetryAfterFailure(t *testing.T) {
 	}()
 
 	callCount := 0
-	fetchPlmnConfig = func(poller nfConfigPoller, pollingEndpoint string) ([]models.PlmnId, error) {
+	fetchPlmnConfig = func(poller *nfConfigPoller, pollingEndpoint string) ([]models.PlmnId, error) {
 		callCount++
 		return nil, errors.New("mock failure")
 	}
@@ -234,7 +234,7 @@ func TestFetchPlmnConfig(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(handler))
 			defer server.Close()
 
-			fetchedConfig, err := fetchPlmnConfig(nfConfigPoller{}, server.URL)
+			fetchedConfig, err := fetchPlmnConfig(&nfConfigPoller{}, server.URL)
 
 			if tc.expectedError == "" {
 				if err != nil {

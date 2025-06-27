@@ -29,7 +29,7 @@ const (
 type nfConfigPoller struct {
 	plmnConfigChan    chan<- []models.PlmnId
 	currentPlmnConfig []models.PlmnId
-	client            http.Client
+	client            *http.Client
 }
 
 // StartPollingService initializes the polling service and starts it. The polling service
@@ -38,7 +38,7 @@ func StartPollingService(ctx context.Context, webuiUri string, plmnConfigChan ch
 	poller := nfConfigPoller{
 		plmnConfigChan:    plmnConfigChan,
 		currentPlmnConfig: []models.PlmnId{},
-		client:            http.Client{Timeout: INITIAL_POLLING_INTERVAL},
+		client:            &http.Client{Timeout: INITIAL_POLLING_INTERVAL},
 	}
 	interval := INITIAL_POLLING_INTERVAL
 	pollingEndpoint := webuiUri + POLLING_PATH
@@ -49,7 +49,7 @@ func StartPollingService(ctx context.Context, webuiUri string, plmnConfigChan ch
 			logger.PollConfigLog.Infoln("Polling service shutting down")
 			return
 		case <-time.After(interval):
-			newPlmnConfig, err := fetchPlmnConfig(poller, pollingEndpoint)
+			newPlmnConfig, err := fetchPlmnConfig(&poller, pollingEndpoint)
 			if err != nil {
 				interval = minDuration(interval*time.Duration(POLLING_BACKOFF_FACTOR), POLLING_MAX_BACKOFF)
 				logger.PollConfigLog.Errorf("Polling error. Retrying in %v: %v", interval, err)
@@ -62,7 +62,7 @@ func StartPollingService(ctx context.Context, webuiUri string, plmnConfigChan ch
 	}
 }
 
-var fetchPlmnConfig = func(p nfConfigPoller, endpoint string) ([]models.PlmnId, error) {
+var fetchPlmnConfig = func(p *nfConfigPoller, endpoint string) ([]models.PlmnId, error) {
 	return p.fetchPlmnConfig(endpoint)
 }
 
