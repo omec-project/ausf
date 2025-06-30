@@ -68,7 +68,7 @@ func StartNfRegistrationService(ctx context.Context, plmnConfigChan <-chan []mod
 var registerNF = func(registerCtx context.Context, newPlmnConfig []models.PlmnId) {
 	registerCtxMutex.Lock()
 	defer registerCtxMutex.Unlock()
-	interval := 0 * time.Second
+	interval := 0 * time.Millisecond
 	for {
 		select {
 		case <-registerCtx.Done():
