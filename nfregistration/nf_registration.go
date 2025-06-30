@@ -52,7 +52,7 @@ func StartNfRegistrationService(ctx context.Context, plmnConfigChan <-chan []mod
 			}
 
 			if len(newPlmnConfig) == 0 {
-				logger.NrfRegistrationLog.Infoln("PLMN config is empty. AUSF will degister")
+				logger.NrfRegistrationLog.Infoln("PLMN config is empty. AUSF will deregister")
 				DeregisterNF()
 			} else {
 				logger.NrfRegistrationLog.Infoln("PLMN config is not empty. AUSF will update registration")
