@@ -232,9 +232,15 @@ func TestFetchPlmnConfig(t *testing.T) {
 				}
 			}
 			server := httptest.NewServer(http.HandlerFunc(handler))
+			ch := make(chan []models.PlmnId, 1)
+			poller := nfConfigPoller{
+				currentPlmnConfig: []models.PlmnId{{Mcc: "001", Mnc: "01"}},
+				plmnConfigChan:    ch,
+				client:            &http.Client{},
+			}
 			defer server.Close()
 
-			fetchedConfig, err := fetchPlmnConfig(&nfConfigPoller{}, server.URL)
+			fetchedConfig, err := fetchPlmnConfig(&poller, server.URL)
 
 			if tc.expectedError == "" {
 				if err != nil {
