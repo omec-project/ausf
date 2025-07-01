@@ -38,10 +38,11 @@ Include the `webuiUri` of the webconsole in the configuration file
 ```
 configuration:
   ...
-  webuiUri: https://webui:9090 # or http://webui:9090
+  webuiUri: https://webui:5001 # or http://webui:5001
   ...
 ```
-The scheme (http:// or https://) must be explicitly specified.
+The scheme (http:// or https://) must be explicitly specified. If no parameter is specified,
+AUSF will use `http://webui:5001` by default.
 
 ### HTTPS Support
 
