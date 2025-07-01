@@ -28,11 +28,11 @@ func InitConfigFactory(f string) error {
 	}
 	AusfConfig = Config{}
 
-	if yamlErr := yaml.Unmarshal(content, &AusfConfig); yamlErr != nil {
-		return yamlErr
+	if err := yaml.Unmarshal(content, &AusfConfig); err != nil {
+		return err
 	}
 	if AusfConfig.Configuration.WebuiUri == "" {
-		AusfConfig.Configuration.WebuiUri = "http://webui:9090"
+		AusfConfig.Configuration.WebuiUri = "http://webui:5001"
 		logger.CfgLog.Infof("webuiUri not set in configuration file. Using %v", AusfConfig.Configuration.WebuiUri)
 		return nil
 	}
@@ -60,7 +60,7 @@ func validateWebuiUri(uri string) error {
 	if parsedUrl.Scheme != "http" && parsedUrl.Scheme != "https" {
 		return fmt.Errorf("unsupported scheme for webuiUri: %s", parsedUrl.Scheme)
 	}
-	if parsedUrl.Host == "" {
+	if parsedUrl.Hostname() == "" {
 		return fmt.Errorf("missing host in webuiUri")
 	}
 	return nil

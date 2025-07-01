@@ -51,13 +51,13 @@ var SendRegisterNFInstance = func(plmnConfig []models.PlmnId) (prof models.NfPro
 	configuration.SetBasePath(self.NrfUri)
 	client := Nnrf_NFManagement.NewAPIClient(configuration)
 	receivedNfProfile, res, err := client.NFInstanceIDDocumentApi.RegisterNFInstance(context.TODO(), nfProfile.NfInstanceId, nfProfile)
-	logger.ConsumerLog.Debugln("RegisterNFInstance done using profile:", nfProfile)
+	logger.ConsumerLog.Debugf("RegisterNFInstance done using profile: %+v", nfProfile)
 
 	if err != nil {
 		return models.NfProfile{}, "", err
 	}
 	if res == nil {
-		return models.NfProfile{}, "", openapi.ReportError("no response from server")
+		return models.NfProfile{}, "", fmt.Errorf("no response from server")
 	}
 
 	switch res.StatusCode {
@@ -72,7 +72,7 @@ var SendRegisterNFInstance = func(plmnConfig []models.PlmnId) (prof models.NfPro
 		logger.ConsumerLog.Debugln("AUSF NF profile registered to the NRF")
 		return receivedNfProfile, resourceNrfUri, nil
 	default:
-		return receivedNfProfile, "", openapi.ReportError("unexpected status code returned by the NRF %d", res.StatusCode)
+		return receivedNfProfile, "", fmt.Errorf("unexpected status code returned by the NRF %d", res.StatusCode)
 	}
 }
 
@@ -90,12 +90,12 @@ var SendDeregisterNFInstance = func() error {
 		return err
 	}
 	if res == nil {
-		return openapi.ReportError("no response from server")
+		return fmt.Errorf("no response from server")
 	}
 	if res.StatusCode == 204 {
 		return nil
 	}
-	return openapi.ReportError("unexpected response code")
+	return fmt.Errorf("unexpected response code")
 }
 
 var SendUpdateNFInstance = func(patchItem []models.PatchItem) (receivedNfProfile models.NfProfile, problemDetails *models.ProblemDetails, err error) {
@@ -120,12 +120,12 @@ var SendUpdateNFInstance = func(patchItem []models.PatchItem) (receivedNfProfile
 	}
 
 	if res == nil {
-		return models.NfProfile{}, nil, openapi.ReportError("no response from server")
+		return models.NfProfile{}, nil, fmt.Errorf("no response from server")
 	}
 	if res.StatusCode == 200 || res.StatusCode == 204 {
 		return receivedNfProfile, nil, nil
 	}
-	return models.NfProfile{}, nil, openapi.ReportError("unexpected response code")
+	return models.NfProfile{}, nil, fmt.Errorf("unexpected response code")
 }
 
 var SendCreateSubscription = func(nrfUri string, nrfSubscriptionData models.NrfSubscriptionData) (nrfSubData models.NrfSubscriptionData, problemDetails *models.ProblemDetails, err error) {
@@ -153,7 +153,7 @@ var SendCreateSubscription = func(nrfUri string, nrfSubscriptionData models.NrfS
 		problem := err.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
 		problemDetails = &problem
 	} else {
-		err = openapi.ReportError("server no response")
+		err = fmt.Errorf("server no response")
 	}
 	return
 }
@@ -183,7 +183,7 @@ var SendRemoveSubscription = func(subscriptionId string) (problemDetails *models
 		problem := err.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
 		problemDetails = &problem
 	} else {
-		err = openapi.ReportError("server no response")
+		err = fmt.Errorf("server no response")
 	}
 	return
 }

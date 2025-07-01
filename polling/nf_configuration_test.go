@@ -25,11 +25,10 @@ import (
 )
 
 func TestStartPollingService_Success(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx := t.Context()
 	originalFetchPlmnConfig := fetchPlmnConfig
 	defer func() {
 		fetchPlmnConfig = originalFetchPlmnConfig
-		cancel()
 	}()
 
 	expectedConfig := []models.PlmnId{{Mcc: "001", Mnc: "01"}}
@@ -39,7 +38,7 @@ func TestStartPollingService_Success(t *testing.T) {
 	pollingChan := make(chan []models.PlmnId, 1)
 
 	go StartPollingService(ctx, "http://dummy", pollingChan)
-	time.Sleep(INITIAL_POLLING_INTERVAL)
+	time.Sleep(initialPollingInterval)
 
 	select {
 	case result := <-pollingChan:
@@ -66,7 +65,7 @@ func TestStartPollingService_RetryAfterFailure(t *testing.T) {
 	plmnChan := make(chan []models.PlmnId, 1)
 	go StartPollingService(ctx, "http://dummy", plmnChan)
 
-	time.Sleep(4 * INITIAL_POLLING_INTERVAL)
+	time.Sleep(4 * initialPollingInterval)
 	cancel()
 	<-ctx.Done()
 

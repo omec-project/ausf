@@ -20,10 +20,10 @@ import (
 )
 
 const (
-	INITIAL_POLLING_INTERVAL = 5 * time.Second
-	POLLING_MAX_BACKOFF      = 40 * time.Second
-	POLLING_BACKOFF_FACTOR   = 2
-	POLLING_PATH             = "/nfconfig/plmn"
+	initialPollingInterval = 5 * time.Second
+	pollingMaxBackoff      = 40 * time.Second
+	pollingBackoffFactor   = 2
+	pollingPath            = "/nfconfig/plmn"
 )
 
 type nfConfigPoller struct {
@@ -38,11 +38,11 @@ func StartPollingService(ctx context.Context, webuiUri string, plmnConfigChan ch
 	poller := nfConfigPoller{
 		plmnConfigChan:    plmnConfigChan,
 		currentPlmnConfig: []models.PlmnId{},
-		client:            &http.Client{Timeout: INITIAL_POLLING_INTERVAL},
+		client:            &http.Client{Timeout: initialPollingInterval},
 	}
-	interval := INITIAL_POLLING_INTERVAL
-	pollingEndpoint := webuiUri + POLLING_PATH
-
+	interval := initialPollingInterval
+	pollingEndpoint := webuiUri + pollingPath
+	logger.PollConfigLog.Infof("Started polling service on %s every %v", pollingEndpoint, initialPollingInterval)
 	for {
 		select {
 		case <-ctx.Done():
@@ -51,12 +51,11 @@ func StartPollingService(ctx context.Context, webuiUri string, plmnConfigChan ch
 		case <-time.After(interval):
 			newPlmnConfig, err := fetchPlmnConfig(&poller, pollingEndpoint)
 			if err != nil {
-				interval = minDuration(interval*time.Duration(POLLING_BACKOFF_FACTOR), POLLING_MAX_BACKOFF)
-				logger.PollConfigLog.Errorf("Polling error. Retrying in %v: %v", interval, err)
+				interval = minDuration(interval*time.Duration(pollingBackoffFactor), pollingMaxBackoff)
+				logger.PollConfigLog.Errorf("Polling error. Retrying in %v: %+v", interval, err)
 				continue
 			}
-			logger.PollConfigLog.Infoln("Configuration polled successfully")
-			interval = INITIAL_POLLING_INTERVAL
+			interval = initialPollingInterval
 			poller.handlePolledPlmnConfig(newPlmnConfig)
 		}
 	}
@@ -67,7 +66,7 @@ var fetchPlmnConfig = func(p *nfConfigPoller, endpoint string) ([]models.PlmnId,
 }
 
 func (p *nfConfigPoller) fetchPlmnConfig(pollingEndpoint string) ([]models.PlmnId, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), INITIAL_POLLING_INTERVAL)
+	ctx, cancel := context.WithTimeout(context.Background(), initialPollingInterval)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, pollingEndpoint, nil)
@@ -109,11 +108,11 @@ func (p *nfConfigPoller) fetchPlmnConfig(pollingEndpoint string) ([]models.PlmnI
 
 func (p *nfConfigPoller) handlePolledPlmnConfig(newPlmnConfig []models.PlmnId) {
 	if reflect.DeepEqual(p.currentPlmnConfig, newPlmnConfig) {
-		logger.PollConfigLog.Debugln("PLMN config did not change")
+		logger.PollConfigLog.Debugf("PLMN config did not change %+v", newPlmnConfig)
 		return
 	}
 	p.currentPlmnConfig = newPlmnConfig
-	logger.PollConfigLog.Infoln("PLMN config changed. New PLMN ID list:", p.currentPlmnConfig)
+	logger.PollConfigLog.Infof("PLMN config changed. New PLMN ID list: %+v", p.currentPlmnConfig)
 	p.plmnConfigChan <- p.currentPlmnConfig
 }
 

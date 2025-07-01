@@ -61,8 +61,7 @@ func TestNfRegistrationService_WhenEmptyConfig_ThenDeregisterNFAndStopTimer(t *t
 			}
 
 			ch := make(chan []models.PlmnId, 1)
-			ctx, registerCancel := context.WithCancel(context.Background())
-			defer registerCancel()
+			ctx := t.Context()
 			go StartNfRegistrationService(ctx, ch)
 			ch <- []models.PlmnId{}
 
@@ -99,8 +98,7 @@ func TestNfRegistrationService_WhenConfigChanged_ThenRegisterNFSuccessAndStartTi
 	}
 
 	ch := make(chan []models.PlmnId, 1)
-	ctx, registerCancel := context.WithCancel(context.Background())
-	defer registerCancel()
+	ctx := t.Context()
 	go StartNfRegistrationService(ctx, ch)
 	newConfig := []models.PlmnId{{Mcc: "001", Mnc: "01"}}
 	ch <- newConfig
@@ -131,8 +129,7 @@ func TestNfRegistrationService_ConfigChanged_RetryIfRegisterNFFails(t *testing.T
 	}
 
 	ch := make(chan []models.PlmnId, 1)
-	ctx, registerCancel := context.WithCancel(context.Background())
-	defer registerCancel()
+	ctx := t.Context()
 	go StartNfRegistrationService(ctx, ch)
 	ch <- []models.PlmnId{{Mcc: "001", Mnc: "01"}}
 
@@ -166,8 +163,7 @@ func TestNfRegistrationService_WhenConfigChanged_ThenPreviousRegistrationIsCance
 	}
 
 	ch := make(chan []models.PlmnId, 1)
-	ctx, registerCancel := context.WithCancel(context.Background())
-	defer registerCancel()
+	ctx := t.Context()
 	go StartNfRegistrationService(ctx, ch)
 	firstConfig := []models.PlmnId{{Mcc: "001", Mnc: "01"}}
 	ch <- firstConfig

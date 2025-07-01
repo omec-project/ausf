@@ -18,7 +18,7 @@ func TestGetDefaultWebuiUrl(t *testing.T) {
 		t.Errorf("error in InitConfigFactory: %v", err)
 	}
 	got := AusfConfig.Configuration.WebuiUri
-	want := "http://webui:9090"
+	want := "http://webui:5001"
 	assert.Equal(t, got, want, "The webui URL is not correct.")
 }
 
@@ -40,13 +40,28 @@ func TestValidateWebuiUri(t *testing.T) {
 	}{
 		{
 			name:    "valid https URI with port",
-			uri:     "https://webui:9090",
+			uri:     "https://webui:5001",
 			isValid: true,
 		},
 		{
 			name:    "valid http URI with port",
-			uri:     "http://webui:8080",
+			uri:     "http://webui:5001",
 			isValid: true,
+		},
+		{
+			name:    "valid https URI without port",
+			uri:     "https://webui",
+			isValid: true,
+		},
+		{
+			name:    "valid http URI without port",
+			uri:     "http://webui.com",
+			isValid: true,
+		},
+		{
+			name:    "invalid host",
+			uri:     "http://:8080",
+			isValid: false,
 		},
 		{
 			name:    "invalid scheme",

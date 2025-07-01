@@ -35,7 +35,7 @@ const (
 func StartNfRegistrationService(ctx context.Context, plmnConfigChan <-chan []models.PlmnId) {
 	var registerCancel context.CancelFunc
 	var registerCtx context.Context
-
+	logger.NrfRegistrationLog.Infoln("Started NF registration to NRF service")
 	for {
 		select {
 		case <-ctx.Done():
@@ -52,10 +52,10 @@ func StartNfRegistrationService(ctx context.Context, plmnConfigChan <-chan []mod
 			}
 
 			if len(newPlmnConfig) == 0 {
-				logger.NrfRegistrationLog.Infoln("PLMN config is empty. AUSF will deregister")
+				logger.NrfRegistrationLog.Debugln("PLMN config is empty. AUSF will deregister")
 				DeregisterNF()
 			} else {
-				logger.NrfRegistrationLog.Infoln("PLMN config is not empty. AUSF will update registration")
+				logger.NrfRegistrationLog.Debugln("PLMN config is not empty. AUSF will update registration")
 				registerCtx, registerCancel = context.WithCancel(context.Background())
 				// Create new cancellable context for this registration
 				go registerNF(registerCtx, newPlmnConfig)
@@ -152,7 +152,7 @@ func startKeepAliveTimer(profileHeartbeatTimer int32, plmnConfig []models.PlmnId
 	defer keepAliveTimerMutex.Unlock()
 	stopKeepAliveTimer()
 	heartbeatTimer := DEFAULT_HEARTBEAT_TIMER
-	if profileHeartbeatTimer != 0 {
+	if profileHeartbeatTimer <= 0 {
 		heartbeatTimer = profileHeartbeatTimer
 	}
 	heartbeatFunction := func() { heartbeatNF(plmnConfig) }

@@ -53,5 +53,5 @@ Check the official guide for installing root CA certificates on Ubuntu:
 
 ## Reach out to us through
 
-1. #sdcore-dev channel in [ONF Community Slack](https://onf-community.slack.com/)
+1. #sdcore-dev channel in [ONF Community Slack](https://aether5g-project.slack.com)
 2. Raise Github [issues](https://github.com/omec-project/ausf/issues/new)
