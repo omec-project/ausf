@@ -19,6 +19,9 @@ import (
 )
 
 func getNfProfile(ausfContext *ausfContext.AUSFContext, plmnConfig []models.PlmnId) (profile models.NfProfile, err error) {
+	if ausfContext == nil {
+		return profile, fmt.Errorf("ausf context has not been intialized. NF profile cannot be built")
+	}
 	profile.NfInstanceId = ausfContext.NfId
 	profile.NfType = models.NfType_AUSF
 	profile.NfStatus = models.NfStatus_REGISTERED
