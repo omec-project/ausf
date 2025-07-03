@@ -17,7 +17,6 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/antihax/optional"
 	"github.com/omec-project/ausf/consumer"
@@ -43,40 +42,6 @@ func setupTest() {
 	if err := factory.InitConfigFactory("factory/ausfcfg.yaml"); err != nil {
 		fmt.Printf("could not InitConfigFactory: %+v", err)
 	}
-}
-
-func TestRegisterNF(t *testing.T) {
-	origRegisterNFInstance := consumer.SendRegisterNFInstance
-	origSearchNFInstances := consumer.SendSearchNFInstances
-	origUpdateNFInstance := consumer.SendUpdateNFInstance
-	defer func() {
-		consumer.SendRegisterNFInstance = origRegisterNFInstance
-		consumer.SendSearchNFInstances = origSearchNFInstances
-		consumer.SendUpdateNFInstance = origUpdateNFInstance
-	}()
-	t.Logf("test case TestRegisterNF")
-	var prof models.NfProfile
-	consumer.SendRegisterNFInstance = func(nrfUri string, nfInstanceId string, profile models.NfProfile) (models.NfProfile, string, string, error) {
-		prof = profile
-		prof.HeartBeatTimer = 1
-		t.Logf("test RegisterNFInstance called")
-		return prof, "", "", nil
-	}
-	consumer.SendSearchNFInstances = func(nrfUri string, targetNfType, requestNfType models.NfType, param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts) (models.SearchResult, error) {
-		t.Logf("test SearchNFInstance called")
-		return models.SearchResult{}, nil
-	}
-	consumer.SendUpdateNFInstance = func(patchItem []models.PatchItem) (nfProfile models.NfProfile, problemDetails *models.ProblemDetails, err error) {
-		return prof, nil, nil
-	}
-	go AUSFTest.RegisterNF()
-	service.ConfigPodTrigger <- true
-	time.Sleep(5 * time.Second)
-	assert.Equal(t, service.KeepAliveTimer != nil, true)
-
-	service.ConfigPodTrigger <- false
-	time.Sleep(1 * time.Second)
-	assert.Equal(t, service.KeepAliveTimer == nil, true)
 }
 
 func TestGetUDMUri(t *testing.T) {
