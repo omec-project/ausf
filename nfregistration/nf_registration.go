@@ -158,13 +158,13 @@ func startKeepAliveTimer(profileHeartbeatTimer int32, plmnConfig []models.PlmnId
 	heartbeatFunction := func() { heartbeatNF(plmnConfig) }
 	// AfterFunc starts timer and waits for keepAliveTimer to elapse and then calls heartbeatNF function
 	keepAliveTimer = time.AfterFunc(time.Duration(heartbeatTimer)*time.Second, heartbeatFunction)
-	logger.NrfRegistrationLog.Infof("started heartbeat timer: %v sec", heartbeatTimer)
+	logger.NrfRegistrationLog.Debugf("started heartbeat timer: %v sec", heartbeatTimer)
 }
 
 func stopKeepAliveTimer() {
 	if keepAliveTimer != nil {
 		keepAliveTimer.Stop()
 		keepAliveTimer = nil
-		logger.NrfRegistrationLog.Infoln("stopped heartbeat timer")
+		logger.NrfRegistrationLog.Debugln("stopped heartbeat timer")
 	}
 }
