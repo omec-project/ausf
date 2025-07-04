@@ -118,7 +118,7 @@ func heartbeatNF(plmnConfig []models.PlmnId) {
 			logger.NrfRegistrationLog.Infoln("register AUSF instance to NRF with updated profile succeeded")
 		}
 	} else {
-		logger.NrfRegistrationLog.Infoln("AUSF update NF instance (heartbeat) succeeded")
+		logger.NrfRegistrationLog.Debugln("AUSF update NF instance (heartbeat) succeeded")
 	}
 	startKeepAliveTimer(nfProfile.HeartBeatTimer, plmnConfig)
 }
