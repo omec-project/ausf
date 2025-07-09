@@ -26,8 +26,8 @@ var (
 )
 
 const (
-	DEFAULT_HEARTBEAT_TIMER int32 = 60
-	RETRY_TIME                    = 10 * time.Second
+	defaultHeartbeatTimer int32 = 60
+	retryTime                   = 10 * time.Second
 )
 
 // StartNfRegistrationService starts the registration service. If the new config is empty, the NF
@@ -79,7 +79,7 @@ var registerNF = func(registerCtx context.Context, newPlmnConfig []models.PlmnId
 			nfProfile, _, err := consumer.SendRegisterNFInstance(newPlmnConfig)
 			if err != nil {
 				logger.NrfRegistrationLog.Errorln("register AUSF instance to NRF failed. Will retry.", err.Error())
-				interval = RETRY_TIME
+				interval = retryTime
 				continue
 			}
 			logger.NrfRegistrationLog.Infoln("register AUSF instance to NRF with updated profile succeeded")
@@ -152,7 +152,7 @@ func startKeepAliveTimer(profileHeartbeatTimer int32, plmnConfig []models.PlmnId
 	keepAliveTimerMutex.Lock()
 	defer keepAliveTimerMutex.Unlock()
 	stopKeepAliveTimer()
-	heartbeatTimer := DEFAULT_HEARTBEAT_TIMER
+	heartbeatTimer := defaultHeartbeatTimer
 	if profileHeartbeatTimer > 0 {
 		heartbeatTimer = profileHeartbeatTimer
 	}
