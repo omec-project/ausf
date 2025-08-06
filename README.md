@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 -->
 [![Go Report Card](https://goreportcard.com/badge/github.com/omec-project/ausf)](https://goreportcard.com/report/github.com/omec-project/ausf)
 
-# ausf
+# AUSF
 
 AUSF is an important service function in the 5G Core network. It provides the
 basic authentication for both 3gpp and non-3gpp access. Crucial for secured
@@ -27,6 +27,9 @@ and the serving network name and the 5G AKA is selected. The NF Service Consumer
 3. Provides service on SBI interface Nausf
 
 Compliance of the 5G Network functions can be found at [5G Compliance](https://docs.sd-core.opennetworking.org/main/overview/3gpp-compliance-5g.html)
+
+## AUSF flow diagram
+![AUSF Flow Diagram](/docs/images/README-AUSF.png)
 
 ## Dynamic Network configuration (via webconsole)
 
