@@ -15,6 +15,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -433,8 +434,9 @@ func TestCreateSubscriptionFail(t *testing.T) {
 				t.Errorf("Subscription ID mismatch. got = %v, want = %v (Correct Subscription ID is not stored in the AUSF context)",
 					val, parameters[i].expectedSubscriptionId)
 			}
-			if err != parameters[i].expectedError {
-				t.Errorf("SendNfDiscoveryToNrf error mismatch. got = %v, want = %v (SendNfDiscoveryToNrf is failed)",
+			if !((err == nil && parameters[i].expectedError == nil) ||
+				(err != nil && parameters[i].expectedError != nil && err.Error() == parameters[i].expectedError.Error())) {
+				t.Errorf("SendNfDiscoveryToNrf error mismatch. got = %+v, want = %+v (SendNfDiscoveryToNrf is failed)",
 					err, parameters[i].expectedError)
 			}
 			if callCountSendCreateSubscription != parameters[i].expectedCallCountSendCreateSubscription {
@@ -588,8 +590,8 @@ func TestNfSubscriptionStatusNotify(t *testing.T) {
 				ProfileChanges: []models.ChangeItem{},
 			}
 			err := producer.NfSubscriptionStatusNotifyProcedure(notificationData)
-			if err != parameters[i].expectedProblem {
-				t.Errorf("NfSubscriptionStatusNotifyProcedure error mismatch. got = %v, want = %v (NfSubscriptionStatusNotifyProcedure is failed)",
+			if !reflect.DeepEqual(err, parameters[i].expectedProblem) {
+				t.Errorf("NfSubscriptionStatusNotifyProcedure error mismatch. got = %+v, want = %+v (NfSubscriptionStatusNotifyProcedure is failed)",
 					err, parameters[i].expectedProblem)
 			}
 			if callCountSendRemoveSubscription != parameters[i].expectedCallCountSendRemoveSubscription {
