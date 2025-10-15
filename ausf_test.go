@@ -26,7 +26,6 @@ import (
 	"github.com/omec-project/ausf/service"
 	"github.com/omec-project/openapi/Nnrf_NFDiscovery"
 	"github.com/omec-project/openapi/models"
-	"github.com/stretchr/testify/assert"
 )
 
 var (
@@ -176,9 +175,18 @@ func TestGetUDMUri(t *testing.T) {
 		t.Run(fmt.Sprintf("NRF caching is [%v]", parameters[i].inputEnableNrfCaching), func(t *testing.T) {
 			ausfContext.GetSelf().EnableNrfCaching = parameters[i].inputEnableNrfCaching
 			udm_uri := producer.GetUdmUrl(ausfContext.GetSelf().NrfUri)
-			assert.Equal(t, parameters[i].expectedCallCountSearchNFInstances, callCountSearchNFInstances, "NF instance is searched in the cache.")
-			assert.Equal(t, parameters[i].expectedCallCountSendNfDiscovery, callCountSendNfDiscovery, "NF discovery request is sent to NRF.")
-			assert.Equal(t, parameters[i].udmUri, udm_uri, "UDR Uri is set.")
+			if callCountSearchNFInstances != parameters[i].expectedCallCountSearchNFInstances {
+				t.Errorf("NF instance search count mismatch. got = %d, want = %d (NF instance is searched in the cache)",
+					callCountSearchNFInstances, parameters[i].expectedCallCountSearchNFInstances)
+			}
+			if callCountSendNfDiscovery != parameters[i].expectedCallCountSendNfDiscovery {
+				t.Errorf("NF discovery request count mismatch. got = %d, want = %d (NF discovery request is sent to NRF)",
+					callCountSendNfDiscovery, parameters[i].expectedCallCountSendNfDiscovery)
+			}
+			if udm_uri != parameters[i].udmUri {
+				t.Errorf("UDM URI mismatch. got = %q, want = %q (UDR Uri is set)",
+					udm_uri, parameters[i].udmUri)
+			}
 			callCountSendNfDiscovery = 0
 			callCountSearchNFInstances = 0
 		})
@@ -267,10 +275,20 @@ func TestCreateSubscriptionSuccess(t *testing.T) {
 		t.Run(fmt.Sprintf("CreateSubscription testname %v result %v", parameters[i].testName, parameters[i].result), func(t *testing.T) {
 			_, err := consumer.SendNfDiscoveryToNrf(context.Background(), "testNRFUri", "UDM", "AUSF", &param)
 			val, _ := ausfContext.GetSelf().NfStatusSubscriptions.Load(parameters[i].nfInstanceId)
-			assert.Equal(t, val, parameters[i].subscriptionId, "Correct Subscription ID is not stored in the AUSF context.")
-			assert.Equal(t, parameters[i].expectedError, err, "SendNfDiscoveryToNrf is failed.")
-			// Subscription is created.
-			assert.Equal(t, parameters[i].expectedCallCountSendCreateSubscription, callCountSendCreateSubscription, "Subscription is not created for NF instance.")
+			if val != parameters[i].subscriptionId {
+				t.Errorf("Subscription ID mismatch. got = %v, want = %v (Correct Subscription ID is not stored in the AUSF context)",
+					val, parameters[i].subscriptionId)
+			}
+
+			if err != parameters[i].expectedError {
+				t.Errorf("SendNfDiscoveryToNrf error mismatch. got = %v, want = %v (SendNfDiscoveryToNrf is failed)",
+					err, parameters[i].expectedError)
+			}
+
+			if callCountSendCreateSubscription != parameters[i].expectedCallCountSendCreateSubscription {
+				t.Errorf("Subscription creation count mismatch. got = %d, want = %d (Subscription is not created for NF instance)",
+					callCountSendCreateSubscription, parameters[i].expectedCallCountSendCreateSubscription)
+			}
 			callCountSendCreateSubscription = 0
 		})
 	}
@@ -411,9 +429,18 @@ func TestCreateSubscriptionFail(t *testing.T) {
 			}
 			_, err := consumer.SendNfDiscoveryToNrf(context.Background(), "testNRFUri", "UDM", "AUSF", &param)
 			val, _ := ausfContext.GetSelf().NfStatusSubscriptions.Load(udmProfile.NfInstanceId)
-			assert.Equal(t, val, parameters[i].expectedSubscriptionId, "Correct Subscription ID is not stored in the AUSF context.")
-			assert.Equal(t, parameters[i].expectedError, err, "SendNfDiscoveryToNrf is failed.")
-			assert.Equal(t, parameters[i].expectedCallCountSendCreateSubscription, callCountSendCreateSubscription, "Subscription is not created for NF instance.")
+			if val != parameters[i].expectedSubscriptionId {
+				t.Errorf("Subscription ID mismatch. got = %v, want = %v (Correct Subscription ID is not stored in the AUSF context)",
+					val, parameters[i].expectedSubscriptionId)
+			}
+			if err != parameters[i].expectedError {
+				t.Errorf("SendNfDiscoveryToNrf error mismatch. got = %v, want = %v (SendNfDiscoveryToNrf is failed)",
+					err, parameters[i].expectedError)
+			}
+			if callCountSendCreateSubscription != parameters[i].expectedCallCountSendCreateSubscription {
+				t.Errorf("Subscription creation count mismatch. got = %d, want = %d (Subscription is not created for NF instance)",
+					callCountSendCreateSubscription, parameters[i].expectedCallCountSendCreateSubscription)
+			}
 			callCountSendCreateSubscription = 0
 			ausfContext.GetSelf().NfStatusSubscriptions.Delete(udmProfile.NfInstanceId)
 		})
@@ -561,11 +588,18 @@ func TestNfSubscriptionStatusNotify(t *testing.T) {
 				ProfileChanges: []models.ChangeItem{},
 			}
 			err := producer.NfSubscriptionStatusNotifyProcedure(notificationData)
-			assert.Equal(t, parameters[i].expectedProblem, err, "NfSubscriptionStatusNotifyProcedure is failed.")
-			// Subscription is removed.
-			assert.Equal(t, parameters[i].expectedCallCountSendRemoveSubscription, callCountSendRemoveSubscription, "Subscription is not removed.")
-			// NF Profile is removed from NRF cache.
-			assert.Equal(t, parameters[i].expectedCallCountNRFCacheRemoveNfProfileFromNrfCache, callCountNRFCacheRemoveNfProfileFromNrfCache, "NF Profile is not removed from NRF cache.")
+			if err != parameters[i].expectedProblem {
+				t.Errorf("NfSubscriptionStatusNotifyProcedure error mismatch. got = %v, want = %v (NfSubscriptionStatusNotifyProcedure is failed)",
+					err, parameters[i].expectedProblem)
+			}
+			if callCountSendRemoveSubscription != parameters[i].expectedCallCountSendRemoveSubscription {
+				t.Errorf("Subscription removal count mismatch. got = %d, want = %d (Subscription is not removed)",
+					callCountSendRemoveSubscription, parameters[i].expectedCallCountSendRemoveSubscription)
+			}
+			if callCountNRFCacheRemoveNfProfileFromNrfCache != parameters[i].expectedCallCountNRFCacheRemoveNfProfileFromNrfCache {
+				t.Errorf("NF Profile cache removal count mismatch. got = %d, want = %d (NF Profile is not removed from NRF cache)",
+					callCountNRFCacheRemoveNfProfileFromNrfCache, parameters[i].expectedCallCountNRFCacheRemoveNfProfileFromNrfCache)
+			}
 			callCountSendRemoveSubscription = 0
 			callCountNRFCacheRemoveNfProfileFromNrfCache = 0
 			ausfContext.GetSelf().NfStatusSubscriptions.Delete(parameters[i].nfInstanceIdForSubscription)
