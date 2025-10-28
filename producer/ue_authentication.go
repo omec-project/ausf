@@ -496,8 +496,20 @@ func parseEAPPacket(payload []byte) (*EAPPacket, error) {
 		Contents:   payload,
 	}
 
+	// Validate that the Length field matches the actual payload length
+	if int(packet.Length) > len(payload) {
+		return nil, fmt.Errorf("EAP packet Length field (%d) exceeds actual payload length (%d)",
+			packet.Length, len(payload))
+	}
+
+	// Additional validation: Length should be at least 4 (header size)
+	if packet.Length < 4 {
+		return nil, fmt.Errorf("EAP packet Length field (%d) is less than minimum header size (4)",
+			packet.Length)
+	}
+
 	// For Request and Response packets, extract Type and TypeData
-	if (packet.Code == 1 || packet.Code == 2) && len(payload) > 4 {
+	if (packet.Code == EAPCodeRequest || packet.Code == EAPCodeResponse) && len(payload) > 4 {
 		packet.Type = payload[4]
 		if len(payload) > 5 {
 			packet.TypeData = payload[5:]
