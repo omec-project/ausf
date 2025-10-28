@@ -17,8 +17,6 @@ import (
 	"strings"
 
 	"github.com/bronze1man/radius"
-	"github.com/google/gopacket"
-	"github.com/google/gopacket/layers"
 	ausf_context "github.com/omec-project/ausf/context"
 	"github.com/omec-project/ausf/logger"
 	stats "github.com/omec-project/ausf/metrics"
@@ -33,6 +31,24 @@ const (
 	SERVING_NETWORK_NOT_AUTHORIZED_ERROR = "SERVING_NETWORK_NOT_AUTHORIZED"
 	AV_GENERATION_PROBLEM_ERROR          = "AV_GENERATION_PROBLEM"
 )
+
+// EAP constants
+const (
+	EAPCodeRequest  = 1
+	EAPCodeResponse = 2
+	EAPCodeSuccess  = 3
+	EAPCodeFailure  = 4
+)
+
+// Simple EAP packet structure
+type EAPPacket struct {
+	Code       uint8
+	Identifier uint8
+	Length     uint16
+	Type       uint8
+	TypeData   []byte
+	Contents   []byte
+}
 
 // Generates a random int between 0 and 255
 func GenerateRandomNumber() (uint8, error) {
@@ -404,16 +420,20 @@ func EapAuthComfirmRequestProcedure(updateEapSession models.EapSession, eapSessi
 		eapPayload = eapPayloadTmp
 	}
 
-	eapGoPkt := gopacket.NewPacket(eapPayload, layers.LayerTypeEAP, gopacket.Default)
-	eapLayer := eapGoPkt.Layer(layers.LayerTypeEAP)
-	eapContent, _ := eapLayer.(*layers.EAP)
+	eapContent, err := parseEAPPacket(eapPayload)
+	if err != nil {
+		logger.Auth5gAkaComfirmLog.Warnf("EAP packet parsing failed: %+v", err)
+		var problemDetails models.ProblemDetails
+		problemDetails.Cause = "EAP_PACKET_PARSE_ERROR"
+		return nil, &problemDetails
+	}
 
-	if eapContent.Code != layers.EAPCodeResponse {
+	if eapContent.Code != EAPCodeResponse {
 		logConfirmFailureAndInformUDM(eapSessionID, models.AuthType_EAP_AKA_PRIME, servingNetworkName,
 			"eap packet code error", ausfCurrentContext.UdmUeauUrl)
 		ausfCurrentContext.AuthStatus = models.AuthResult_FAILURE
 		responseBody.AuthResult = models.AuthResult_ONGOING
-		failEapAkaNoti := ConstructFailEapAkaNotification(eapContent.Id)
+		failEapAkaNoti := ConstructFailEapAkaNotification(eapContent.Identifier)
 		responseBody.EapPayload = failEapAkaNoti
 		return &responseBody, nil
 	}
@@ -429,12 +449,12 @@ func EapAuthComfirmRequestProcedure(updateEapSession models.EapSession, eapSessi
 			responseBody.AuthResult = models.AuthResult_ONGOING
 			logConfirmFailureAndInformUDM(eapSessionID, models.AuthType_EAP_AKA_PRIME, servingNetworkName,
 				"eap packet decode error", ausfCurrentContext.UdmUeauUrl)
-			failEapAkaNoti := ConstructFailEapAkaNotification(eapContent.Id)
+			failEapAkaNoti := ConstructFailEapAkaNotification(eapContent.Identifier)
 			responseBody.EapPayload = failEapAkaNoti
 		} else if XRES == string(RES) { // decodeOK && XRES == res, auth success
 			logger.EapAuthComfirmLog.Infoln("correct RES value, EAP-AKA' auth succeed")
 			responseBody.AuthResult = models.AuthResult_SUCCESS
-			eapSuccPkt := ConstructEapNoTypePkt(radius.EapCodeSuccess, eapContent.Id)
+			eapSuccPkt := ConstructEapNoTypePkt(radius.EapCodeSuccess, eapContent.Identifier)
 			responseBody.EapPayload = eapSuccPkt
 			udmUrl := ausfCurrentContext.UdmUeauUrl
 			if sendErr := sendAuthResultToUDM(eapSessionID, models.AuthType_EAP_AKA_PRIME, true, servingNetworkName,
@@ -450,7 +470,7 @@ func EapAuthComfirmRequestProcedure(updateEapSession models.EapSession, eapSessi
 			responseBody.AuthResult = models.AuthResult_ONGOING
 			logConfirmFailureAndInformUDM(eapSessionID, models.AuthType_EAP_AKA_PRIME, servingNetworkName,
 				"Wrong RES value, EAP-AKA' auth failed", ausfCurrentContext.UdmUeauUrl)
-			failEapAkaNoti := ConstructFailEapAkaNotification(eapContent.Id)
+			failEapAkaNoti := ConstructFailEapAkaNotification(eapContent.Identifier)
 			responseBody.EapPayload = failEapAkaNoti
 		}
 
@@ -461,4 +481,40 @@ func EapAuthComfirmRequestProcedure(updateEapSession models.EapSession, eapSessi
 	}
 
 	return &responseBody, nil
+}
+
+// parseEAPPacket parses raw EAP payload into EAPPacket struct
+func parseEAPPacket(payload []byte) (*EAPPacket, error) {
+	if len(payload) < 4 {
+		return nil, fmt.Errorf("EAP packet too short: %d bytes", len(payload))
+	}
+
+	packet := &EAPPacket{
+		Code:       payload[0],
+		Identifier: payload[1],
+		Length:     uint16(payload[2])<<8 | uint16(payload[3]),
+		Contents:   payload,
+	}
+
+	// Validate that the Length field matches the actual payload length
+	if int(packet.Length) > len(payload) {
+		return nil, fmt.Errorf("EAP packet Length field (%d) exceeds actual payload length (%d)",
+			packet.Length, len(payload))
+	}
+
+	// Additional validation: Length should be at least 4 (header size)
+	if packet.Length < 4 {
+		return nil, fmt.Errorf("EAP packet Length field (%d) is less than minimum header size (4)",
+			packet.Length)
+	}
+
+	// For Request and Response packets, extract Type and TypeData
+	if (packet.Code == EAPCodeRequest || packet.Code == EAPCodeResponse) && len(payload) > 4 {
+		packet.Type = payload[4]
+		if len(payload) > 5 {
+			packet.TypeData = payload[5:]
+		}
+	}
+
+	return packet, nil
 }
