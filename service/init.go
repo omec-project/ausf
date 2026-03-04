@@ -108,7 +108,6 @@ func (ausf *AUSF) setLogLevel() {
 	}
 }
 
-
 func (ausf *AUSF) Start() {
 	logger.InitLog.Infoln("server started")
 
@@ -173,7 +172,6 @@ func (ausf *AUSF) Start() {
 		logger.InitLog.Fatalf("HTTP server setup failed: %+v", err)
 	}
 }
-
 
 func (ausf *AUSF) Terminate(cancelServices context.CancelFunc, wg *sync.WaitGroup) {
 	logger.InitLog.Infof("terminating AUSF")
