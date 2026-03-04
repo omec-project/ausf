@@ -9,11 +9,9 @@
 package service
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"sync"
@@ -110,19 +108,6 @@ func (ausf *AUSF) setLogLevel() {
 	}
 }
 
-func (ausf *AUSF) FilterCli(c *cli.Command) (args []string) {
-	for _, flag := range ausf.GetCliCmd() {
-		name := flag.Names()[0]
-		value := fmt.Sprint(c.Generic(name))
-		if value == "" {
-			continue
-		}
-
-		args = append(args, "--"+name, value)
-	}
-	return args
-}
-
 func (ausf *AUSF) Start() {
 	logger.InitLog.Infoln("server started")
 
@@ -186,51 +171,6 @@ func (ausf *AUSF) Start() {
 	if err != nil {
 		logger.InitLog.Fatalf("HTTP server setup failed: %+v", err)
 	}
-}
-
-func (ausf *AUSF) Exec(c *cli.Command) error {
-	logger.InitLog.Debugln("args:", c.String("cfg"))
-	args := ausf.FilterCli(c)
-	logger.InitLog.Debugln("filter:", args)
-	command := exec.Command("ausf", args...)
-
-	stdout, err := command.StdoutPipe()
-	if err != nil {
-		logger.InitLog.Fatalln(err)
-	}
-	wg := sync.WaitGroup{}
-	wg.Add(3)
-	go func() {
-		in := bufio.NewScanner(stdout)
-		for in.Scan() {
-			logger.InitLog.Infoln(in.Text())
-		}
-		wg.Done()
-	}()
-
-	stderr, err := command.StderrPipe()
-	if err != nil {
-		logger.InitLog.Fatalln(err)
-	}
-	go func() {
-		in := bufio.NewScanner(stderr)
-		for in.Scan() {
-			logger.InitLog.Infoln(in.Text())
-		}
-		wg.Done()
-	}()
-
-	go func() {
-		startErr := command.Start()
-		if startErr != nil {
-			logger.InitLog.Fatalln(startErr)
-		}
-		wg.Done()
-	}()
-
-	wg.Wait()
-
-	return err
 }
 
 func (ausf *AUSF) Terminate(cancelServices context.CancelFunc, wg *sync.WaitGroup) {
