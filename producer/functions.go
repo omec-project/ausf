@@ -223,7 +223,7 @@ func decodeResMac(packetData []byte, wholePacket []byte, Kautn string) ([]byte, 
 				logger.EapAuthComfirmLog.Infoln("check MAC integrity failed")
 			}
 		default:
-			logger.EapAuthComfirmLog.Infof("Detect unknown attribute with type %d\n", attributeType)
+			logger.EapAuthComfirmLog.Infof("Detect unknown attribute with type %d", attributeType)
 		}
 	}
 	if detectRes && detectMac && macCorrect {
