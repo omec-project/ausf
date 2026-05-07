@@ -30,7 +30,8 @@ type AUSFContext struct {
 	UriScheme                models.UriScheme
 	Key                      string
 	PEM                      string
-	NfService                map[models.ServiceName]models.NfService
+	NfService                map[models.ServiceName]models.NFService
+	PlmnList                 []models.PlmnId
 	SBIPort                  int
 	EnableNrfCaching         bool
 	NrfCacheEvictionInterval time.Duration

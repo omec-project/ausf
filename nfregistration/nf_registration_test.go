@@ -91,8 +91,9 @@ func TestNfRegistrationService_WhenConfigChanged_ThenRegisterNFSuccessAndStartTi
 	}()
 
 	registrations := []models.PlmnId{}
-	consumer.SendRegisterNFInstance = func(plmnConfig []models.PlmnId) (models.NfProfile, string, error) {
-		profile := models.NfProfile{HeartBeatTimer: 60}
+	consumer.SendRegisterNFInstance = func(plmnConfig []models.PlmnId) (*models.NFProfile, string, error) {
+		profile := models.NewNFProfileWithDefaults()
+		profile.SetHeartBeatTimer(60)
 		registrations = append(registrations, plmnConfig...)
 		return profile, "", nil
 	}
@@ -122,8 +123,9 @@ func TestNfRegistrationService_ConfigChanged_RetryIfRegisterNFFails(t *testing.T
 	}()
 
 	called := 0
-	consumer.SendRegisterNFInstance = func(plmnConfig []models.PlmnId) (models.NfProfile, string, error) {
-		profile := models.NfProfile{HeartBeatTimer: 60}
+	consumer.SendRegisterNFInstance = func(plmnConfig []models.PlmnId) (*models.NFProfile, string, error) {
+		profile := models.NewNFProfileWithDefaults()
+		profile.SetHeartBeatTimer(60)
 		called++
 		return profile, "", errors.New("mock error")
 	}
@@ -215,12 +217,13 @@ func TestHeartbeatNF_Success(t *testing.T) {
 		}
 	}()
 
-	consumer.SendUpdateNFInstance = func(patchItem []models.PatchItem) (models.NfProfile, *models.ProblemDetails, error) {
-		return models.NfProfile{}, nil, nil
+	consumer.SendUpdateNFInstance = func(patchItem []models.PatchItem) (*models.NFProfile, *models.ProblemDetails, error) {
+		return &models.NFProfile{}, nil, nil
 	}
-	consumer.SendRegisterNFInstance = func(plmnConfig []models.PlmnId) (models.NfProfile, string, error) {
+	consumer.SendRegisterNFInstance = func(plmnConfig []models.PlmnId) (*models.NFProfile, string, error) {
 		calledRegister = true
-		profile := models.NfProfile{HeartBeatTimer: 60}
+		profile := models.NewNFProfileWithDefaults()
+		profile.SetHeartBeatTimer(60)
 		return profile, "", nil
 	}
 	plmnConfig := []models.PlmnId{}
@@ -247,12 +250,13 @@ func TestHeartbeatNF_WhenNfUpdateFails_ThenNfRegistersIsCalled(t *testing.T) {
 		}
 	}()
 
-	consumer.SendUpdateNFInstance = func(patchItem []models.PatchItem) (models.NfProfile, *models.ProblemDetails, error) {
-		return models.NfProfile{}, nil, errors.New("mock error")
+	consumer.SendUpdateNFInstance = func(patchItem []models.PatchItem) (*models.NFProfile, *models.ProblemDetails, error) {
+		return &models.NFProfile{}, nil, errors.New("mock error")
 	}
 
-	consumer.SendRegisterNFInstance = func(plmnConfig []models.PlmnId) (models.NfProfile, string, error) {
-		profile := models.NfProfile{HeartBeatTimer: 60}
+	consumer.SendRegisterNFInstance = func(plmnConfig []models.PlmnId) (*models.NFProfile, string, error) {
+		profile := models.NewNFProfileWithDefaults()
+		profile.SetHeartBeatTimer(60)
 		calledRegister = true
 		return profile, "", nil
 	}

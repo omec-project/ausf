@@ -12,6 +12,7 @@ import (
 
 	ausfContext "github.com/omec-project/ausf/context"
 	"github.com/omec-project/ausf/logger"
+	"github.com/omec-project/openapi"
 	"github.com/omec-project/openapi/Nnrf_NFDiscovery"
 	"github.com/omec-project/openapi/models"
 	nrfCache "github.com/omec-project/openapi/nrfcache"
@@ -21,12 +22,12 @@ var (
 	CreateSubscription        = SendCreateSubscription
 	NRFCacheSearchNFInstances = nrfCache.SearchNFInstances
 	StoreApiClient            = &Nnrf_NFDiscovery.APIClient{}
-	StoreApiSearchNFInstances = (*Nnrf_NFDiscovery.NFInstancesStoreApiService).SearchNFInstances
+	StoreApiSearchNFInstances = (*Nnrf_NFDiscovery.NFInstancesStoreAPIService).SearchNFInstancesExecute
 )
 
-var SendSearchNFInstances = func(nrfUri string, targetNfType, requestNfType models.NfType,
-	param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts,
-) (models.SearchResult, error) {
+var SendSearchNFInstances = func(nrfUri string, targetNfType, requestNfType models.NFType,
+	param Nnrf_NFDiscovery.ApiSearchNFInstancesRequest,
+) (*models.SearchResult, error) {
 	ctx := context.Background()
 	if ausfContext.GetSelf().EnableNrfCaching {
 		return NRFCacheSearchNFInstances(ctx, nrfUri, targetNfType, requestNfType, param)
@@ -35,45 +36,64 @@ var SendSearchNFInstances = func(nrfUri string, targetNfType, requestNfType mode
 	}
 }
 
-var SendNfDiscoveryToNrf = func(ctx context.Context, nrfUri string, targetNfType, requestNfType models.NfType,
-	param *Nnrf_NFDiscovery.SearchNFInstancesParamOpts,
-) (models.SearchResult, error) {
-	// Set client and set url
+var SendNfDiscoveryToNrf = func(ctx context.Context, nrfUri string, targetNfType, requestNfType models.NFType,
+	param Nnrf_NFDiscovery.ApiSearchNFInstancesRequest,
+) (*models.SearchResult, error) {
 	configuration := Nnrf_NFDiscovery.NewConfiguration()
-	configuration.SetBasePath(nrfUri)
+	serverConfig := &configuration.Servers[0]
+	if apiRootVar, exists := serverConfig.Variables["apiRoot"]; exists {
+		apiRootVar.DefaultValue = nrfUri
+		serverConfig.Variables["apiRoot"] = apiRootVar
+	}
 	client := Nnrf_NFDiscovery.NewAPIClient(configuration)
 
-	result, res, err := StoreApiSearchNFInstances(client.NFInstancesStoreApi, context.TODO(), targetNfType, requestNfType, param)
+	param = param.TargetNfType(targetNfType)
+	param = param.RequesterNfType(requestNfType)
+	result, res, err := StoreApiSearchNFInstances(client.NFInstancesStoreAPI.(*Nnrf_NFDiscovery.NFInstancesStoreAPIService), param)
+	returnErr := err
 	if res != nil && res.StatusCode == http.StatusTemporaryRedirect {
-		err = fmt.Errorf("temporary redirect for non NRF consumer")
+		returnErr = fmt.Errorf("temporary redirect for non NRF consumer")
 	}
-	defer func() {
-		if bodyCloseErr := res.Body.Close(); bodyCloseErr != nil {
-			err = fmt.Errorf("SearchNFInstances' response body cannot close: %+w", bodyCloseErr)
-		}
-	}()
+	if res != nil {
+		defer func() {
+			if bodyCloseErr := res.Body.Close(); bodyCloseErr != nil {
+				returnErr = fmt.Errorf("SearchNFInstances' response body cannot close: %+w", bodyCloseErr)
+			}
+		}()
+	}
 
 	ausfSelf := ausfContext.GetSelf()
 
-	var nrfSubData models.NrfSubscriptionData
-	var problemDetails *models.ProblemDetails
 	for _, nfProfile := range result.NfInstances {
 		// checking whether the AUSF subscribed to this target nfinstanceid or not
 		if _, ok := ausfSelf.NfStatusSubscriptions.Load(nfProfile.NfInstanceId); !ok {
-			nrfSubscriptionData := models.NrfSubscriptionData{
+			nrfSubscriptionData := models.SubscriptionData{
 				NfStatusNotificationUri: fmt.Sprintf("%s/nausf-callback/v1/nf-status-notify", ausfSelf.GetIPv4Uri()),
-				SubscrCond:              &models.NfInstanceIdCond{NfInstanceId: nfProfile.NfInstanceId},
-				ReqNfType:               requestNfType,
+				SubscrCond: &models.SubscrCond{
+					NfInstanceIdCond: &models.NfInstanceIdCond{
+						NfInstanceId: openapi.PtrString(nfProfile.GetNfInstanceId()),
+					},
+				},
+				ReqNfType: &requestNfType,
 			}
-			nrfSubData, problemDetails, err = CreateSubscription(nrfUri, nrfSubscriptionData)
+			nrfSubData, problemDetails, subErr := CreateSubscription(nrfUri, nrfSubscriptionData)
 			if problemDetails != nil {
 				logger.ConsumerLog.Errorf("SendCreateSubscription to NRF, Problem[%+v]", problemDetails)
-			} else if err != nil {
-				logger.ConsumerLog.Errorf("SendCreateSubscription Error[%+v]", err)
+				ausfSelf.NfStatusSubscriptions.Store(nfProfile.GetNfInstanceId(), "")
+				if returnErr == nil && subErr != nil {
+					returnErr = subErr
+				}
+			} else if subErr != nil {
+				logger.ConsumerLog.Errorf("SendCreateSubscription Error[%+v]", subErr)
+				ausfSelf.NfStatusSubscriptions.Store(nfProfile.GetNfInstanceId(), "")
+				if returnErr == nil {
+					returnErr = subErr
+				}
+			} else if nrfSubData != nil {
+				ausfSelf.NfStatusSubscriptions.Store(nfProfile.GetNfInstanceId(), nrfSubData.GetSubscriptionId())
 			}
-			ausfSelf.NfStatusSubscriptions.Store(nfProfile.NfInstanceId, nrfSubData.SubscriptionId)
 		}
 	}
 
-	return result, err
+	return result, returnErr
 }

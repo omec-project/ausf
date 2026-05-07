@@ -17,13 +17,12 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/antihax/optional"
 	"github.com/bronze1man/radius"
 	"github.com/omec-project/ausf/consumer"
 	ausf_context "github.com/omec-project/ausf/context"
 	"github.com/omec-project/ausf/logger"
 	"github.com/omec-project/openapi/Nnrf_NFDiscovery"
-	Nudm_UEAU "github.com/omec-project/openapi/Nudm_UEAuthentication"
+	"github.com/omec-project/openapi/Nudm_UEAU"
 	"github.com/omec-project/openapi/models"
 )
 
@@ -260,55 +259,67 @@ func ConstructEapNoTypePkt(code radius.EapCode, pktID uint8) string {
 
 func GetUdmUrl(nrfUri string) string {
 	udmUrl := "https://localhost:29503" // default
-	nfDiscoverParam := Nnrf_NFDiscovery.SearchNFInstancesParamOpts{
-		ServiceNames: optional.NewInterface([]models.ServiceName{models.ServiceName_NUDM_UEAU}),
-	}
-	res, err := consumer.SendSearchNFInstances(nrfUri, models.NfType_UDM, models.NfType_AUSF, &nfDiscoverParam)
+	nfDiscoverParam := Nnrf_NFDiscovery.ApiSearchNFInstancesRequest{}
+	nfDiscoverParam = nfDiscoverParam.ServiceNames([]models.ServiceName{models.SERVICENAME_NUDM_UEAU})
+	res, err := consumer.SendSearchNFInstances(nrfUri, models.NFTYPE_UDM, models.NFTYPE_AUSF, nfDiscoverParam)
 	if err != nil {
 		logger.UeAuthPostLog.Errorln("[Search UDM UEAU] ", err.Error())
-	} else if len(res.NfInstances) > 0 {
+	}
+	if res == nil || len(res.NfInstances) == 0 {
+		directRes, directErr := consumer.SendNfDiscoveryToNrf(context.Background(), nrfUri, models.NFTYPE_UDM, models.NFTYPE_AUSF, nfDiscoverParam)
+		if directErr != nil {
+			logger.UeAuthPostLog.Errorln("[Direct Search UDM UEAU] ", directErr.Error())
+		}
+		if directRes != nil {
+			res = directRes
+		}
+	}
+	if res != nil && len(res.NfInstances) > 0 {
 		udmInstance := res.NfInstances[0]
 		if len(udmInstance.Ipv4Addresses) > 0 && udmInstance.NfServices != nil {
-			ueauService := (*udmInstance.NfServices)[0]
-			ueauEndPoint := (*ueauService.IpEndPoints)[0]
-			udmUrl = string(ueauService.Scheme) + "://" + ueauEndPoint.Ipv4Address + ":" + strconv.Itoa(int(ueauEndPoint.Port))
+			ueauService := (udmInstance.NfServices)[0]
+			ueauEndPoint := (ueauService.IpEndPoints)[0]
+			udmUrl = string(ueauService.GetScheme()) + "://" + ueauEndPoint.GetIpv4Address() + ":" + strconv.Itoa(int(ueauEndPoint.GetPort()))
 		}
 	} else {
-		logger.UeAuthPostLog.Errorln("[Search UDM UEAU] len(NfInstances) = 0")
+		logger.UeAuthPostLog.Errorln("[search UDM UEAU] len(NfInstances) = 0")
 	}
 	return udmUrl
 }
 
 func createClientToUdmUeau(udmUrl string) *Nudm_UEAU.APIClient {
-	cfg := Nudm_UEAU.NewConfiguration()
-	cfg.SetBasePath(udmUrl)
-	clientAPI := Nudm_UEAU.NewAPIClient(cfg)
+	configuration := Nudm_UEAU.NewConfiguration()
+	serverConfig := &configuration.Servers[0]
+	if apiRootVar, exists := serverConfig.Variables["apiRoot"]; exists {
+		apiRootVar.DefaultValue = udmUrl
+		serverConfig.Variables["apiRoot"] = apiRootVar
+	}
+	clientAPI := Nudm_UEAU.NewAPIClient(configuration)
 	return clientAPI
 }
 
 func sendAuthResultToUDM(id string, authType models.AuthType, success bool, servingNetworkName, udmUrl string) error {
-	timeNow := time.Now()
-	timePtr := &timeNow
-
 	var authEvent models.AuthEvent
-	authEvent.TimeStamp = timePtr
+	authEvent.TimeStamp = time.Now()
 	authEvent.AuthType = authType
 	authEvent.Success = success
 	authEvent.ServingNetworkName = servingNetworkName
 
 	client := createClientToUdmUeau(udmUrl)
-	_, _, confirmAuthErr := client.ConfirmAuthApi.ConfirmAuth(context.Background(), id, authEvent)
+	apiConfirmAuthRequest := client.ConfirmAuthAPI.ConfirmAuth(context.Background(), id)
+	apiConfirmAuthRequest = apiConfirmAuthRequest.AuthEvent(authEvent)
+	_, _, confirmAuthErr := client.ConfirmAuthAPI.ConfirmAuthExecute(apiConfirmAuthRequest)
 	return confirmAuthErr
 }
 
 func logConfirmFailureAndInformUDM(id string, authType models.AuthType, servingNetworkName, errStr, udmUrl string) {
 	switch authType {
-	case models.AuthType__5_G_AKA:
+	case models.AUTHTYPE__5_G_AKA:
 		logger.Auth5gAkaComfirmLog.Infoln(errStr)
 		if sendErr := sendAuthResultToUDM(id, authType, false, "", udmUrl); sendErr != nil {
 			logger.Auth5gAkaComfirmLog.Infoln(sendErr.Error())
 		}
-	case models.AuthType_EAP_AKA_PRIME:
+	case models.AUTHTYPE_EAP_AKA_PRIME:
 		logger.EapAuthComfirmLog.Infoln(errStr)
 		if sendErr := sendAuthResultToUDM(id, authType, false, "", udmUrl); sendErr != nil {
 			logger.EapAuthComfirmLog.Infoln(sendErr.Error())
