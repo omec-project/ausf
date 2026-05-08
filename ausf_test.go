@@ -24,9 +24,9 @@ import (
 	"github.com/omec-project/ausf/factory"
 	"github.com/omec-project/ausf/producer"
 	"github.com/omec-project/ausf/service"
-	"github.com/omec-project/openapi"
-	"github.com/omec-project/openapi/Nnrf_NFDiscovery"
-	"github.com/omec-project/openapi/models"
+	"github.com/omec-project/openapi/v2"
+	"github.com/omec-project/openapi/v2/Nnrf_NFDiscovery"
+	"github.com/omec-project/openapi/v2/models"
 )
 
 var (

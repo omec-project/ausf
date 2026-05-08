@@ -21,9 +21,9 @@ import (
 	"github.com/omec-project/ausf/consumer"
 	ausf_context "github.com/omec-project/ausf/context"
 	"github.com/omec-project/ausf/logger"
-	"github.com/omec-project/openapi/Nnrf_NFDiscovery"
-	"github.com/omec-project/openapi/Nudm_UEAU"
-	"github.com/omec-project/openapi/models"
+	"github.com/omec-project/openapi/v2/Nnrf_NFDiscovery"
+	"github.com/omec-project/openapi/v2/Nudm_UEAU"
+	"github.com/omec-project/openapi/v2/models"
 )
 
 func intToByteArray(i int) []byte {

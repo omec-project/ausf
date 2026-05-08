@@ -15,7 +15,7 @@ import (
 
 	"github.com/omec-project/ausf/consumer"
 	"github.com/omec-project/ausf/logger"
-	"github.com/omec-project/openapi/models"
+	"github.com/omec-project/openapi/v2/models"
 )
 
 var (

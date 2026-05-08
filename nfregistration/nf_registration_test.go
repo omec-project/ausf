@@ -16,7 +16,7 @@ import (
 	"time"
 
 	"github.com/omec-project/ausf/consumer"
-	"github.com/omec-project/openapi/models"
+	"github.com/omec-project/openapi/v2/models"
 )
 
 func TestNfRegistrationService_WhenEmptyConfig_ThenDeregisterNFAndStopTimer(t *testing.T) {
