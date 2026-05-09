@@ -61,6 +61,12 @@ var SendNfDiscoveryToNrf = func(ctx context.Context, nrfUri string, targetNfType
 			}
 		}()
 	}
+	if result == nil {
+		if returnErr == nil {
+			returnErr = openapi.ReportError("SearchNFInstances returned nil result")
+		}
+		return nil, returnErr
+	}
 
 	ausfSelf := ausfContext.GetSelf()
 

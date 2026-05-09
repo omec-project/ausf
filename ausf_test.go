@@ -186,6 +186,53 @@ func TestGetUDMUri(t *testing.T) {
 	}
 }
 
+func TestGetUDMUri_SkipsInstancesWithoutUsableEndpoints(t *testing.T) {
+	origSendSearchNFInstances := consumer.SendSearchNFInstances
+	origSendNfDiscoveryToNrf := consumer.SendNfDiscoveryToNrf
+	defer func() {
+		consumer.SendSearchNFInstances = origSendSearchNFInstances
+		consumer.SendNfDiscoveryToNrf = origSendNfDiscoveryToNrf
+	}()
+
+	consumer.SendSearchNFInstances = func(nrfUri string, targetNfType, requestNfType models.NFType,
+		param Nnrf_NFDiscovery.ApiSearchNFInstancesRequest,
+	) (*models.SearchResult, error) {
+		invalidProfile := models.NFProfileDiscovery{
+			NfInstanceId: "empty-service-instance",
+			NfType:       models.NFTYPE_UDM,
+			NfStatus:     models.NFSTATUS_REGISTERED,
+			NfServices: []models.NFService{{
+				ServiceName: models.SERVICENAME_NUDM_UEAU,
+				Scheme:      models.URISCHEME_HTTPS,
+			}},
+		}
+		validProfile := models.NFProfileDiscovery{
+			NfInstanceId: "usable-instance",
+			NfType:       models.NFTYPE_UDM,
+			NfStatus:     models.NFSTATUS_REGISTERED,
+			NfServices: []models.NFService{{
+				ServiceName: models.SERVICENAME_NUDM_UEAU,
+				Scheme:      models.URISCHEME_HTTPS,
+				IpEndPoints: []models.IpEndPoint{{
+					Ipv4Address: openapi.PtrString("20.20.13.1"),
+					Port:        openapi.PtrInt32(8090),
+				}},
+			}},
+		}
+		return models.NewSearchResult(2, []models.NFProfileDiscovery{invalidProfile, validProfile}), nil
+	}
+	consumer.SendNfDiscoveryToNrf = func(ctx context.Context, nrfUri string, targetNfType, requestNfType models.NFType,
+		param Nnrf_NFDiscovery.ApiSearchNFInstancesRequest,
+	) (*models.SearchResult, error) {
+		t.Fatal("did not expect direct NRF discovery fallback")
+		return nil, nil
+	}
+
+	if got := producer.GetUdmUrl(ausfContext.GetSelf().NrfUri); got != "https://20.20.13.1:8090" {
+		t.Fatalf("unexpected UDM URL: got %q want %q", got, "https://20.20.13.1:8090")
+	}
+}
+
 func TestCreateSubscriptionSuccess(t *testing.T) {
 	t.Logf("test cases for CreateSubscription")
 	udmProfile := models.NFProfileDiscovery{
@@ -276,6 +323,30 @@ func TestCreateSubscriptionSuccess(t *testing.T) {
 			}
 			callCountSendCreateSubscription = 0
 		})
+	}
+}
+
+func TestSendNfDiscoveryToNrf_WhenSearchResultIsNil_ReturnsError(t *testing.T) {
+	origStoreApiSearchNFInstances := consumer.StoreApiSearchNFInstances
+	defer func() {
+		consumer.StoreApiSearchNFInstances = origStoreApiSearchNFInstances
+	}()
+
+	consumer.StoreApiSearchNFInstances = func(*Nnrf_NFDiscovery.NFInstancesStoreAPIService, Nnrf_NFDiscovery.ApiSearchNFInstancesRequest) (*models.SearchResult, *http.Response, error) {
+		return nil, &http.Response{
+			Status:     "200 OK",
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader("{}")),
+		}, nil
+	}
+
+	param := Nnrf_NFDiscovery.ApiSearchNFInstancesRequest{}
+	result, err := consumer.SendNfDiscoveryToNrf(context.Background(), "testNRFUri", models.NFTYPE_UDM, models.NFTYPE_AUSF, param)
+	if result != nil {
+		t.Fatalf("expected nil result, got %+v", result)
+	}
+	if err == nil || !strings.Contains(err.Error(), "nil result") {
+		t.Fatalf("expected nil result error, got %v", err)
 	}
 }
 

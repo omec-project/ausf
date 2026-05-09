@@ -275,12 +275,23 @@ func GetUdmUrl(nrfUri string) string {
 		}
 	}
 	if res != nil && len(res.NfInstances) > 0 {
-		udmInstance := res.NfInstances[0]
-		if len(udmInstance.Ipv4Addresses) > 0 && udmInstance.NfServices != nil {
-			ueauService := (udmInstance.NfServices)[0]
-			ueauEndPoint := (ueauService.IpEndPoints)[0]
-			udmUrl = string(ueauService.GetScheme()) + "://" + ueauEndPoint.GetIpv4Address() + ":" + strconv.Itoa(int(ueauEndPoint.GetPort()))
+		for _, udmInstance := range res.NfInstances {
+			for _, ueauService := range udmInstance.NfServices {
+				if ueauService.GetServiceName() != models.SERVICENAME_NUDM_UEAU {
+					continue
+				}
+				if apiPrefix, ok := ueauService.GetApiPrefixOk(); ok && apiPrefix != nil && *apiPrefix != "" {
+					return *apiPrefix
+				}
+				for _, ueauEndPoint := range ueauService.IpEndPoints {
+					if ueauEndPoint.GetIpv4Address() == "" || ueauEndPoint.GetPort() == 0 {
+						continue
+					}
+					return string(ueauService.GetScheme()) + "://" + ueauEndPoint.GetIpv4Address() + ":" + strconv.Itoa(int(ueauEndPoint.GetPort()))
+				}
+			}
 		}
+		logger.UeAuthPostLog.Errorln("[search UDM UEAU] no usable UDM service endpoints found")
 	} else {
 		logger.UeAuthPostLog.Errorln("[search UDM UEAU] len(NfInstances) = 0")
 	}

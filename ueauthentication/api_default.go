@@ -39,7 +39,7 @@ func HTTPEapAuthMethod(c *gin.Context) {
 	requestBody, err := c.GetRawData()
 	if err != nil {
 		problemDetail := utils.ProblemDetailsSystemFailure(err.Error())
-		logger.Auth5gAkaComfirmLog.Errorf("Get Request Body error: %+v", err)
+		logger.EapAuthComfirmLog.Errorf("Get Request Body error: %+v", err)
 		c.JSON(http.StatusInternalServerError, problemDetail)
 		return
 	}
@@ -48,7 +48,7 @@ func HTTPEapAuthMethod(c *gin.Context) {
 	if err != nil {
 		problemDetail := "[Request Body] " + err.Error()
 		rsp := utils.ProblemDetailsMalformedRequestSyntax(problemDetail)
-		logger.Auth5gAkaComfirmLog.Errorln(problemDetail)
+		logger.EapAuthComfirmLog.Errorln(problemDetail)
 		c.JSON(http.StatusBadRequest, rsp)
 		return
 	}
@@ -60,7 +60,7 @@ func HTTPEapAuthMethod(c *gin.Context) {
 
 	responseBody, err := openapi.SetBody(rsp.Body, "application/json")
 	if err != nil {
-		logger.Auth5gAkaComfirmLog.Errorln(err)
+		logger.EapAuthComfirmLog.Errorln(err)
 		problemDetails := utils.ProblemDetailsSystemFailure(err.Error())
 		c.JSON(http.StatusInternalServerError, problemDetails)
 	} else {
