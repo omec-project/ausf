@@ -80,12 +80,19 @@ func executeSearchNFInstancesRequest(
 	ausfSelf := ausfContext.GetSelf()
 
 	for _, nfProfile := range result.NfInstances {
-		if _, ok := ausfSelf.NfStatusSubscriptions.Load(nfProfile.NfInstanceId); !ok {
+		nfInstanceID := nfProfile.GetNfInstanceId()
+		if subscriptionID, ok := ausfSelf.NfStatusSubscriptions.Load(nfInstanceID); ok {
+			if subscriptionIDStr, ok := subscriptionID.(string); ok && subscriptionIDStr != "" {
+				continue
+			}
+			ausfSelf.NfStatusSubscriptions.Delete(nfInstanceID)
+		}
+		{
 			nrfSubscriptionData := models.SubscriptionData{
 				NfStatusNotificationUri: fmt.Sprintf("%s/nausf-callback/v1/nf-status-notify", ausfSelf.GetIPv4Uri()),
 				SubscrCond: &models.SubscrCond{
 					NfInstanceIdCond: &models.NfInstanceIdCond{
-						NfInstanceId: openapi.PtrString(nfProfile.GetNfInstanceId()),
+						NfInstanceId: openapi.PtrString(nfInstanceID),
 					},
 				},
 				ReqNfType: &requestNfType,
@@ -93,18 +100,18 @@ func executeSearchNFInstancesRequest(
 			nrfSubData, problemDetails, subErr := CreateSubscription(nrfUri, nrfSubscriptionData)
 			if problemDetails != nil {
 				logger.ConsumerLog.Errorf("SendCreateSubscription to NRF, Problem[%+v]", problemDetails)
-				ausfSelf.NfStatusSubscriptions.Store(nfProfile.GetNfInstanceId(), "")
+				ausfSelf.NfStatusSubscriptions.Delete(nfInstanceID)
 				if returnErr == nil && subErr != nil {
 					returnErr = subErr
 				}
 			} else if subErr != nil {
 				logger.ConsumerLog.Errorf("SendCreateSubscription Error[%+v]", subErr)
-				ausfSelf.NfStatusSubscriptions.Store(nfProfile.GetNfInstanceId(), "")
+				ausfSelf.NfStatusSubscriptions.Delete(nfInstanceID)
 				if returnErr == nil {
 					returnErr = subErr
 				}
 			} else if nrfSubData != nil {
-				ausfSelf.NfStatusSubscriptions.Store(nfProfile.GetNfInstanceId(), nrfSubData.GetSubscriptionId())
+				ausfSelf.NfStatusSubscriptions.Store(nfInstanceID, nrfSubData.GetSubscriptionId())
 			}
 		}
 	}

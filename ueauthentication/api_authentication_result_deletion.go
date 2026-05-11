@@ -23,25 +23,37 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/omec-project/ausf/logger"
+	"github.com/omec-project/openapi/v2/models"
 )
+
+func writeNotImplementedProblem(c *gin.Context, detail string) {
+	problemDetails := models.NewProblemDetails()
+	problemDetails.SetStatus(http.StatusNotImplemented)
+	problemDetails.SetCause("NOT_IMPLEMENTED")
+	problemDetails.SetDetail(detail)
+	c.JSON(http.StatusNotImplemented, problemDetails)
+}
 
 // Delete /ue-authentications/:authCtxId/5g-aka-confirmation
 // Deletes the authentication result in the UDM
 func HTTPDelete5gAkaAuthenticationResult(c *gin.Context) {
-	logger.Auth5gAkaComfirmLog.Warnln("Handle Delete /ue-authentications/:authCtxId/5g-aka-confirmation is not implemented")
-	c.String(http.StatusNotImplemented, "501 not implemented")
+	detail := "Handle Delete /ue-authentications/:authCtxId/5g-aka-confirmation is not implemented"
+	logger.Auth5gAkaComfirmLog.Warnln(detail)
+	writeNotImplementedProblem(c, detail)
 }
 
 // Delete /ue-authentications/:authCtxId/eap-session
 // Deletes the authentication result in the UDM
 func HTTPDeleteEapAuthenticationResult(c *gin.Context) {
-	logger.EapAuthComfirmLog.Warnln("Handle Delete /ue-authentications/:authCtxId/eap-session is not implemented")
-	c.String(http.StatusNotImplemented, "501 not implemented")
+	detail := "Handle Delete /ue-authentications/:authCtxId/eap-session is not implemented"
+	logger.EapAuthComfirmLog.Warnln(detail)
+	writeNotImplementedProblem(c, detail)
 }
 
 // Delete /prose-authentications/:authCtxId/prose-auth
 // Deletes the authentication result in the UDM
 func HTTPDeleteProSeAuthenticationResult(c *gin.Context) {
-	logger.UeAuthPostLog.Warnln("Handle Delete /prose-authentications/:authCtxId/prose-auth is not implemented")
-	c.String(http.StatusNotImplemented, "501 not implemented")
+	detail := "Handle Delete /prose-authentications/:authCtxId/prose-auth is not implemented"
+	logger.UeAuthPostLog.Warnln(detail)
+	writeNotImplementedProblem(c, detail)
 }

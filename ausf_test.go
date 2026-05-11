@@ -432,7 +432,7 @@ func TestCreateSubscriptionFail(t *testing.T) {
 		},
 		{
 			httpResponseSuccess,
-			"",
+			nil,
 			nil,
 			nil,
 			&serverErrorProblem,
@@ -444,7 +444,7 @@ func TestCreateSubscriptionFail(t *testing.T) {
 		},
 		{
 			httpResponseSuccess,
-			"",
+			nil,
 			errors.New("SendCreateSubscription request failed"),
 			errors.New("SendCreateSubscription request failed"),
 			nil,
