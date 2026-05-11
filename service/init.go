@@ -122,7 +122,7 @@ func (ausf *AUSF) Start() {
 
 	if self.EnableNrfCaching {
 		logger.InitLog.Infoln("enable NRF caching feature")
-		nrfCache.InitNrfCaching(self.NrfCacheEvictionInterval*time.Second, consumer.SendNfDiscoveryToNrf)
+		nrfCache.InitNrfCaching(self.NrfCacheEvictionInterval*time.Second, consumer.SendNfDiscoveryToNrfCacheQuery)
 	}
 
 	plmnConfigChan := make(chan []models.PlmnId, 1)

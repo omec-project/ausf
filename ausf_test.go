@@ -133,7 +133,7 @@ func TestGetUDMUri(t *testing.T) {
 		callCountSearchNFInstances++
 		return searchResult1, nil
 	}
-	consumer.SendNfDiscoveryToNrf = func(ctx context.Context, nrfUri string, targetNfType, requestNfType models.NFType, param Nnrf_NFDiscovery.ApiSearchNFInstancesRequest) (*models.SearchResult, error) {
+	consumer.SendNfDiscoveryToNrf = func(ctx context.Context, nrfUri string, targetNfType, requestNfType models.NFType, configure consumer.SearchNFInstancesRequestConfigurer) (*models.SearchResult, error) {
 		t.Logf("test SendNfDiscoveryToNrf called")
 		callCountSendNfDiscovery++
 		return searchResult2, nil
@@ -195,7 +195,7 @@ func TestGetUDMUri_SkipsInstancesWithoutUsableEndpoints(t *testing.T) {
 	}()
 
 	consumer.SendSearchNFInstances = func(nrfUri string, targetNfType, requestNfType models.NFType,
-		param Nnrf_NFDiscovery.ApiSearchNFInstancesRequest,
+		configure consumer.SearchNFInstancesRequestConfigurer,
 	) (*models.SearchResult, error) {
 		invalidProfile := models.NFProfileDiscovery{
 			NfInstanceId: "empty-service-instance",
@@ -222,7 +222,7 @@ func TestGetUDMUri_SkipsInstancesWithoutUsableEndpoints(t *testing.T) {
 		return models.NewSearchResult(2, []models.NFProfileDiscovery{invalidProfile, validProfile}), nil
 	}
 	consumer.SendNfDiscoveryToNrf = func(ctx context.Context, nrfUri string, targetNfType, requestNfType models.NFType,
-		param Nnrf_NFDiscovery.ApiSearchNFInstancesRequest,
+		configure consumer.SearchNFInstancesRequestConfigurer,
 	) (*models.SearchResult, error) {
 		t.Fatal("did not expect direct NRF discovery fallback")
 		return nil, nil
@@ -278,8 +278,9 @@ func TestCreateSubscriptionSuccess(t *testing.T) {
 	}
 	// NRF caching is disabled
 	ausfContext.GetSelf().EnableNrfCaching = false
-	param := Nnrf_NFDiscovery.ApiSearchNFInstancesRequest{}
-	param = param.ServiceNames([]models.ServiceName{models.SERVICENAME_NUDM_UEAU})
+	configureSearchUDMRequest := func(request Nnrf_NFDiscovery.ApiSearchNFInstancesRequest) Nnrf_NFDiscovery.ApiSearchNFInstancesRequest {
+		return request.ServiceNames([]models.ServiceName{models.SERVICENAME_NUDM_UEAU})
+	}
 	parameters := []struct {
 		expectedError                           error
 		testName                                string
@@ -307,7 +308,7 @@ func TestCreateSubscriptionSuccess(t *testing.T) {
 	}
 	for i := range parameters {
 		t.Run(fmt.Sprintf("CreateSubscription testname %v result %v", parameters[i].testName, parameters[i].result), func(t *testing.T) {
-			_, err := consumer.SendNfDiscoveryToNrf(context.Background(), "testNRFUri", "UDM", "AUSF", param)
+			_, err := consumer.SendNfDiscoveryToNrf(context.Background(), "testNRFUri", "UDM", "AUSF", configureSearchUDMRequest)
 			val, _ := ausfContext.GetSelf().NfStatusSubscriptions.Load(parameters[i].nfInstanceId)
 			if val != parameters[i].subscriptionId {
 				t.Errorf("Subscription ID mismatch. got = %v, want = %v (Correct Subscription ID is not stored in the AUSF context)",
@@ -340,8 +341,7 @@ func TestSendNfDiscoveryToNrf_WhenSearchResultIsNil_ReturnsError(t *testing.T) {
 		}, nil
 	}
 
-	param := Nnrf_NFDiscovery.ApiSearchNFInstancesRequest{}
-	result, err := consumer.SendNfDiscoveryToNrf(context.Background(), "testNRFUri", models.NFTYPE_UDM, models.NFTYPE_AUSF, param)
+	result, err := consumer.SendNfDiscoveryToNrf(context.Background(), "testNRFUri", models.NFTYPE_UDM, models.NFTYPE_AUSF, nil)
 	if result != nil {
 		t.Fatalf("expected nil result, got %+v", result)
 	}
@@ -403,8 +403,9 @@ func TestCreateSubscriptionFail(t *testing.T) {
 	}()
 	// NRF caching is disabled
 	ausfContext.GetSelf().EnableNrfCaching = false
-	param := Nnrf_NFDiscovery.ApiSearchNFInstancesRequest{}
-	param = param.ServiceNames([]models.ServiceName{models.SERVICENAME_NUDM_UEAU})
+	configureSearchUDMRequest := func(request Nnrf_NFDiscovery.ApiSearchNFInstancesRequest) Nnrf_NFDiscovery.ApiSearchNFInstancesRequest {
+		return request.ServiceNames([]models.ServiceName{models.SERVICENAME_NUDM_UEAU})
+	}
 	parameters := []struct {
 		httpResponse                            http.Response
 		expectedSubscriptionId                  any
@@ -478,7 +479,7 @@ func TestCreateSubscriptionFail(t *testing.T) {
 				callCountSendCreateSubscription++
 				return &parameters[i].nrfSubscriptionData, parameters[i].subscriptionProblem, parameters[i].subscriptionError
 			}
-			_, err := consumer.SendNfDiscoveryToNrf(context.Background(), "testNRFUri", "UDM", "AUSF", param)
+			_, err := consumer.SendNfDiscoveryToNrf(context.Background(), "testNRFUri", "UDM", "AUSF", configureSearchUDMRequest)
 			val, _ := ausfContext.GetSelf().NfStatusSubscriptions.Load(udmProfile.NfInstanceId)
 			if val != parameters[i].expectedSubscriptionId {
 				t.Errorf("Subscription ID mismatch. got = %v, want = %v (Correct Subscription ID is not stored in the AUSF context)",

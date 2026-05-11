@@ -259,14 +259,15 @@ func ConstructEapNoTypePkt(code radius.EapCode, pktID uint8) string {
 
 func GetUdmUrl(nrfUri string) string {
 	udmUrl := "https://localhost:29503" // default
-	nfDiscoverParam := Nnrf_NFDiscovery.ApiSearchNFInstancesRequest{}
-	nfDiscoverParam = nfDiscoverParam.ServiceNames([]models.ServiceName{models.SERVICENAME_NUDM_UEAU})
-	res, err := consumer.SendSearchNFInstances(nrfUri, models.NFTYPE_UDM, models.NFTYPE_AUSF, nfDiscoverParam)
+	configureSearchUDMRequest := func(request Nnrf_NFDiscovery.ApiSearchNFInstancesRequest) Nnrf_NFDiscovery.ApiSearchNFInstancesRequest {
+		return request.ServiceNames([]models.ServiceName{models.SERVICENAME_NUDM_UEAU})
+	}
+	res, err := consumer.SendSearchNFInstances(nrfUri, models.NFTYPE_UDM, models.NFTYPE_AUSF, configureSearchUDMRequest)
 	if err != nil {
 		logger.UeAuthPostLog.Errorln("[Search UDM UEAU] ", err.Error())
 	}
 	if res == nil || len(res.NfInstances) == 0 {
-		directRes, directErr := consumer.SendNfDiscoveryToNrf(context.Background(), nrfUri, models.NFTYPE_UDM, models.NFTYPE_AUSF, nfDiscoverParam)
+		directRes, directErr := consumer.SendNfDiscoveryToNrf(context.Background(), nrfUri, models.NFTYPE_UDM, models.NFTYPE_AUSF, configureSearchUDMRequest)
 		if directErr != nil {
 			logger.UeAuthPostLog.Errorln("[Direct Search UDM UEAU] ", directErr.Error())
 		}

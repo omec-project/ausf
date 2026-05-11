@@ -21,46 +21,55 @@ import (
 var (
 	CreateSubscription        = SendCreateSubscription
 	NRFCacheSearchNFInstances = nrfCache.SearchNFInstances
-	StoreApiClient            = &Nnrf_NFDiscovery.APIClient{}
 	StoreApiSearchNFInstances = (*Nnrf_NFDiscovery.NFInstancesStoreAPIService).SearchNFInstancesExecute
 )
 
-var SendSearchNFInstances = func(nrfUri string, targetNfType, requestNfType models.NFType,
-	param Nnrf_NFDiscovery.ApiSearchNFInstancesRequest,
-) (*models.SearchResult, error) {
-	ctx := context.Background()
-	if ausfContext.GetSelf().EnableNrfCaching {
-		return NRFCacheSearchNFInstances(ctx, nrfUri, targetNfType, requestNfType, param)
-	} else {
-		return SendNfDiscoveryToNrf(ctx, nrfUri, targetNfType, requestNfType, param)
-	}
-}
+type SearchNFInstancesRequestConfigurer func(
+	Nnrf_NFDiscovery.ApiSearchNFInstancesRequest,
+) Nnrf_NFDiscovery.ApiSearchNFInstancesRequest
 
-var SendNfDiscoveryToNrf = func(ctx context.Context, nrfUri string, targetNfType, requestNfType models.NFType,
-	param Nnrf_NFDiscovery.ApiSearchNFInstancesRequest,
-) (*models.SearchResult, error) {
+func newNFDiscoveryClient(nrfUri string) *Nnrf_NFDiscovery.APIClient {
 	configuration := Nnrf_NFDiscovery.NewConfiguration()
 	serverConfig := &configuration.Servers[0]
 	if apiRootVar, exists := serverConfig.Variables["apiRoot"]; exists {
 		apiRootVar.DefaultValue = nrfUri
 		serverConfig.Variables["apiRoot"] = apiRootVar
 	}
-	client := Nnrf_NFDiscovery.NewAPIClient(configuration)
+	return Nnrf_NFDiscovery.NewAPIClient(configuration)
+}
 
-	param = param.TargetNfType(targetNfType)
-	param = param.RequesterNfType(requestNfType)
-	result, res, err := StoreApiSearchNFInstances(client.NFInstancesStoreAPI.(*Nnrf_NFDiscovery.NFInstancesStoreAPIService), param)
-	returnErr := err
+func buildSearchNFInstancesRequest(
+	ctx context.Context,
+	client *Nnrf_NFDiscovery.APIClient,
+	targetNfType, requestNfType models.NFType,
+	configure SearchNFInstancesRequestConfigurer,
+) Nnrf_NFDiscovery.ApiSearchNFInstancesRequest {
+	request := client.NFInstancesStoreAPI.SearchNFInstances(ctx)
+	request = request.TargetNfType(targetNfType)
+	request = request.RequesterNfType(requestNfType)
+	if configure != nil {
+		request = configure(request)
+	}
+	return request
+}
+
+func executeSearchNFInstancesRequest(
+	nrfUri string,
+	requestNfType models.NFType,
+	request Nnrf_NFDiscovery.ApiSearchNFInstancesRequest,
+) (result *models.SearchResult, returnErr error) {
+	result, res, returnErr := StoreApiSearchNFInstances(request.ApiService.(*Nnrf_NFDiscovery.NFInstancesStoreAPIService), request)
 	if res != nil && res.StatusCode == http.StatusTemporaryRedirect {
 		returnErr = fmt.Errorf("temporary redirect for non NRF consumer")
 	}
-	if res != nil {
-		defer func() {
-			if bodyCloseErr := res.Body.Close(); bodyCloseErr != nil {
-				returnErr = fmt.Errorf("SearchNFInstances' response body cannot close: %+w", bodyCloseErr)
-			}
-		}()
-	}
+	defer func() {
+		if res == nil || res.Body == nil {
+			return
+		}
+		if bodyCloseErr := res.Body.Close(); bodyCloseErr != nil && returnErr == nil {
+			returnErr = fmt.Errorf("SearchNFInstances' response body cannot close: %+w", bodyCloseErr)
+		}
+	}()
 	if result == nil {
 		if returnErr == nil {
 			returnErr = openapi.ReportError("SearchNFInstances returned nil result")
@@ -71,7 +80,6 @@ var SendNfDiscoveryToNrf = func(ctx context.Context, nrfUri string, targetNfType
 	ausfSelf := ausfContext.GetSelf()
 
 	for _, nfProfile := range result.NfInstances {
-		// checking whether the AUSF subscribed to this target nfinstanceid or not
 		if _, ok := ausfSelf.NfStatusSubscriptions.Load(nfProfile.NfInstanceId); !ok {
 			nrfSubscriptionData := models.SubscriptionData{
 				NfStatusNotificationUri: fmt.Sprintf("%s/nausf-callback/v1/nf-status-notify", ausfSelf.GetIPv4Uri()),
@@ -102,4 +110,32 @@ var SendNfDiscoveryToNrf = func(ctx context.Context, nrfUri string, targetNfType
 	}
 
 	return result, returnErr
+}
+
+var SendSearchNFInstances = func(nrfUri string, targetNfType, requestNfType models.NFType,
+	configure SearchNFInstancesRequestConfigurer,
+) (*models.SearchResult, error) {
+	ctx := context.Background()
+	client := newNFDiscoveryClient(nrfUri)
+	request := buildSearchNFInstancesRequest(ctx, client, targetNfType, requestNfType, configure)
+	if ausfContext.GetSelf().EnableNrfCaching {
+		return NRFCacheSearchNFInstances(ctx, nrfUri, targetNfType, requestNfType, request)
+	}
+	return SendNfDiscoveryToNrf(ctx, nrfUri, targetNfType, requestNfType, configure)
+}
+
+var SendNfDiscoveryToNrf = func(ctx context.Context, nrfUri string, targetNfType, requestNfType models.NFType,
+	configure SearchNFInstancesRequestConfigurer,
+) (*models.SearchResult, error) {
+	client := newNFDiscoveryClient(nrfUri)
+	request := buildSearchNFInstancesRequest(ctx, client, targetNfType, requestNfType, configure)
+	return executeSearchNFInstancesRequest(nrfUri, requestNfType, request)
+}
+
+func SendNfDiscoveryToNrfCacheQuery(ctx context.Context, nrfUri string, targetNfType, requestNfType models.NFType,
+	request Nnrf_NFDiscovery.ApiSearchNFInstancesRequest,
+) (*models.SearchResult, error) {
+	request = request.TargetNfType(targetNfType)
+	request = request.RequesterNfType(requestNfType)
+	return executeSearchNFInstancesRequest(nrfUri, requestNfType, request)
 }
