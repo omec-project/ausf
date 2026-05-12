@@ -204,7 +204,7 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 		}
 		hxresStarAll := sha256.Sum256(hxresStarBytes)
 		hxresStar := hex.EncodeToString(hxresStarAll[16:]) // last 128 bits
-		logger.Auth5gAkaComfirmLog.Infof("XresStar = %x", authInfoResult.AuthenticationVector.Av5GHeAka.GetXresStar())
+		logger.Auth5gAkaComfirmLog.Infof("XresStar = %s", authInfoResult.AuthenticationVector.Av5GHeAka.GetXresStar())
 
 		// Derive Kseaf from Kausf
 		Kausf := authInfoResult.AuthenticationVector.Av5GHeAka.GetKausf()
