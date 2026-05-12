@@ -63,7 +63,7 @@ func GenerateRandomNumber() (uint8, error) {
 }
 
 func HandleEapAuthComfirmRequest(request *httpwrapper.Request) *httpwrapper.Response {
-	logger.Auth5gAkaComfirmLog.Infoln("EapAuthComfirmRequest")
+	logger.EapAuthComfirmLog.Infoln("EapAuthComfirmRequest")
 
 	updateEapSession := request.Body.(models.EapSession)
 	eapSessionID := request.Params["authCtxId"]
@@ -368,7 +368,7 @@ func Auth5gAkaComfirmRequestProcedure(updateConfirmationData models.Confirmation
 	servingNetworkName := ausfCurrentContext.ServingNetworkName
 
 	// Compare the received RES* with the stored XRES*
-	logger.Auth5gAkaComfirmLog.Infof("res*: %x, Xres*: %x", updateConfirmationData.ResStar, ausfCurrentContext.XresStar)
+	logger.Auth5gAkaComfirmLog.Infof("res*: %s, Xres*: %s", updateConfirmationData.GetResStar(), ausfCurrentContext.XresStar)
 	if strings.Compare(updateConfirmationData.GetResStar(), ausfCurrentContext.XresStar) == 0 {
 		ausfCurrentContext.AuthStatus = models.AUTHRESULT_AUTHENTICATION_SUCCESS
 		responseBody.AuthResult = models.AUTHRESULT_AUTHENTICATION_SUCCESS
