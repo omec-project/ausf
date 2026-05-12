@@ -123,9 +123,9 @@ var SendSearchNFInstances = func(nrfUri string, targetNfType, requestNfType mode
 	configure SearchNFInstancesRequestConfigurer,
 ) (*models.SearchResult, error) {
 	ctx := context.Background()
-	client := newNFDiscoveryClient(nrfUri)
-	request := buildSearchNFInstancesRequest(ctx, client, targetNfType, requestNfType, configure)
 	if ausfContext.GetSelf().EnableNrfCaching {
+		client := newNFDiscoveryClient(nrfUri)
+		request := buildSearchNFInstancesRequest(ctx, client, targetNfType, requestNfType, configure)
 		return NRFCacheSearchNFInstances(ctx, nrfUri, targetNfType, requestNfType, request)
 	}
 	return SendNfDiscoveryToNrf(ctx, nrfUri, targetNfType, requestNfType, configure)

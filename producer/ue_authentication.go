@@ -157,6 +157,14 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 	apiGenerateAuthDataRequest := client.GenerateAuthDataAPI.GenerateAuthData(context.Background(), supiOrSuci)
 	apiGenerateAuthDataRequest = apiGenerateAuthDataRequest.AuthenticationInfoRequest(authInfoReq)
 	authInfoResult, rsp, err := client.GenerateAuthDataAPI.GenerateAuthDataExecute(apiGenerateAuthDataRequest)
+	defer func() {
+		if rsp == nil || rsp.Body == nil {
+			return
+		}
+		if rspCloseErr := rsp.Body.Close(); rspCloseErr != nil {
+			logger.UeAuthPostLog.Errorf("GenerateAuthDataApi response body cannot close: %+v", rspCloseErr)
+		}
+	}()
 	if err != nil {
 		logger.UeAuthPostLog.Infoln(err.Error())
 		problemDetails := models.NewProblemDetails()
@@ -168,11 +176,6 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 		problemDetails.SetStatus(http.StatusInternalServerError)
 		return nil, "", problemDetails
 	}
-	defer func() {
-		if rspCloseErr := rsp.Body.Close(); rspCloseErr != nil {
-			logger.UeAuthPostLog.Errorf("GenerateAuthDataApi response body cannot close: %+v", rspCloseErr)
-		}
-	}()
 
 	ueid := authInfoResult.GetSupi()
 	ausfUeContext := ausf_context.NewAusfUeContext(ueid)
