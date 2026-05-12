@@ -400,16 +400,18 @@ func EapAuthComfirmRequestProcedure(updateEapSession models.EapSession, eapSessi
 	responseBody := models.NewEapSessionWithDefaults()
 
 	if !ausf_context.CheckIfSuciSupiPairExists(eapSessionID) {
-		logger.Auth5gAkaComfirmLog.Infoln("supiSuciPair does not exist, confirmation failed")
+		logger.EapAuthComfirmLog.Infoln("supiSuciPair does not exist, confirmation failed")
 		problemDetails := models.NewProblemDetails()
+		problemDetails.SetStatus(http.StatusNotFound)
 		problemDetails.SetCause(USER_NOT_FOUND_ERROR)
 		return nil, problemDetails
 	}
 
 	currentSupi := ausf_context.GetSupiFromSuciSupiMap(eapSessionID)
 	if !ausf_context.CheckIfAusfUeContextExists(currentSupi) {
-		logger.Auth5gAkaComfirmLog.Infoln("SUPI does not exist, confirmation failed")
+		logger.EapAuthComfirmLog.Infoln("SUPI does not exist, confirmation failed")
 		problemDetails := models.NewProblemDetails()
+		problemDetails.SetStatus(http.StatusNotFound)
 		problemDetails.SetCause(USER_NOT_FOUND_ERROR)
 		return nil, problemDetails
 	}
@@ -418,15 +420,16 @@ func EapAuthComfirmRequestProcedure(updateEapSession models.EapSession, eapSessi
 	servingNetworkName := ausfCurrentContext.ServingNetworkName
 	var eapPayload []byte
 	if eapPayloadTmp, err := base64.StdEncoding.DecodeString(updateEapSession.GetEapPayload()); err != nil {
-		logger.Auth5gAkaComfirmLog.Warnf("EAP Payload decode failed: %+v", err)
+		logger.EapAuthComfirmLog.Warnf("EAP payload decode failed: %+v", err)
 	} else {
 		eapPayload = eapPayloadTmp
 	}
 
 	eapContent, err := parseEAPPacket(eapPayload)
 	if err != nil {
-		logger.Auth5gAkaComfirmLog.Warnf("EAP packet parsing failed: %+v", err)
+		logger.EapAuthComfirmLog.Warnf("EAP packet parsing failed: %+v", err)
 		problemDetails := models.NewProblemDetails()
+		problemDetails.SetStatus(http.StatusBadRequest)
 		problemDetails.SetCause("EAP_PACKET_PARSE_ERROR")
 		return nil, problemDetails
 	}
@@ -464,6 +467,7 @@ func EapAuthComfirmRequestProcedure(updateEapSession models.EapSession, eapSessi
 				udmUrl); sendErr != nil {
 				logger.EapAuthComfirmLog.Infoln(sendErr.Error())
 				problemDetails := models.NewProblemDetails()
+				problemDetails.SetStatus(http.StatusInternalServerError)
 				problemDetails.SetCause(UPSTREAM_SERVER_ERROR)
 				return nil, problemDetails
 			}
