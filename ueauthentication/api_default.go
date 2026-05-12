@@ -70,20 +70,23 @@ func HTTPEapAuthMethod(c *gin.Context) {
 
 // Post /prose-authentications/:authCtxId/prose-auth
 func HTTPProseAuth(c *gin.Context) {
-	logger.UeAuthPostLog.Warnln("Handle Post /prose-authentications/:authCtxId/prose-auth is not implemented")
-	c.String(http.StatusNotImplemented, "501 not implemented")
+	detail := "Handle Post /prose-authentications/:authCtxId/prose-auth is not implemented"
+	logger.UeAuthPostLog.Warnln(detail)
+	writeNotImplementedProblem(c, detail)
 }
 
 // Post /prose-authentications
 func HTTPProseAuthenticationsPost(c *gin.Context) {
-	logger.UeAuthPostLog.Warnln("Handle Post /prose-authentications is not implemented")
-	c.String(http.StatusNotImplemented, "501 not implemented")
+	detail := "Handle Post /prose-authentications is not implemented"
+	logger.UeAuthPostLog.Warnln(detail)
+	writeNotImplementedProblem(c, detail)
 }
 
 // Post /rg-authentications
 func HTTPRgAuthenticationsPost(c *gin.Context) {
-	logger.UeAuthPostLog.Warnln("Handle Post /rg-authentications is not implemented")
-	c.String(http.StatusNotImplemented, "501 not implemented")
+	detail := "Handle Post /rg-authentications is not implemented"
+	logger.UeAuthPostLog.Warnln(detail)
+	writeNotImplementedProblem(c, detail)
 }
 
 // Put /ue-authentications/:authCtxId/5g-aka-confirmation
@@ -125,8 +128,9 @@ func HTTPUeAuthenticationsAuthCtxId5gAkaConfirmationPut(c *gin.Context) {
 
 // Post /ue-authentications/deregister
 func HTTPUeAuthenticationsDeregisterPost(c *gin.Context) {
-	logger.UeAuthPostLog.Warnln("Handle Post /ue-authentications/deregister is not implemented")
-	c.String(http.StatusNotImplemented, "501 not implemented")
+	detail := "Handle Post /ue-authentications/deregister is not implemented"
+	logger.UeAuthPostLog.Warnln(detail)
+	writeNotImplementedProblem(c, detail)
 }
 
 // Post /ue-authentications
