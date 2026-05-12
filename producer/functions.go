@@ -320,7 +320,14 @@ func sendAuthResultToUDM(id string, authType models.AuthType, success bool, serv
 	client := createClientToUdmUeau(udmUrl)
 	apiConfirmAuthRequest := client.ConfirmAuthAPI.ConfirmAuth(context.Background(), id)
 	apiConfirmAuthRequest = apiConfirmAuthRequest.AuthEvent(authEvent)
-	_, _, confirmAuthErr := client.ConfirmAuthAPI.ConfirmAuthExecute(apiConfirmAuthRequest)
+	_, resp, confirmAuthErr := client.ConfirmAuthAPI.ConfirmAuthExecute(apiConfirmAuthRequest)
+	if resp != nil && resp.Body != nil {
+		defer func() {
+			if rspCloseErr := resp.Body.Close(); rspCloseErr != nil {
+				logger.UeAuthPostLog.Errorf("ConfirmAuthAPI response body cannot close: %+v", rspCloseErr)
+			}
+		}()
+	}
 	return confirmAuthErr
 }
 

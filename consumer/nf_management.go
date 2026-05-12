@@ -17,6 +17,15 @@ import (
 	"github.com/omec-project/openapi/v2/models"
 )
 
+func closeNFManagementResponseBody(res *http.Response, operation string) {
+	if res == nil || res.Body == nil {
+		return
+	}
+	if bodyCloseErr := res.Body.Close(); bodyCloseErr != nil {
+		logger.ConsumerLog.Errorf("%s response body cannot close: %+v", operation, bodyCloseErr)
+	}
+}
+
 func getNfProfile(ausfContext *ausfContext.AUSFContext, plmnConfig []models.PlmnId) (profile models.NFProfile, err error) {
 	if ausfContext == nil {
 		return profile, openapi.ReportError("ausf context has not been initialized. NF profile cannot be built")
@@ -56,6 +65,7 @@ var SendRegisterNFInstance = func(plmnConfig []models.PlmnId) (prof *models.NFPr
 	apiRegisterNFInstanceRequest := client.NFInstanceIDDocumentAPI.RegisterNFInstance(context.TODO(), nfProfile.NfInstanceId)
 	apiRegisterNFInstanceRequest = apiRegisterNFInstanceRequest.NFProfile(nfProfile)
 	receivedNfProfile, res, err := client.NFInstanceIDDocumentAPI.RegisterNFInstanceExecute(apiRegisterNFInstanceRequest)
+	defer closeNFManagementResponseBody(res, "RegisterNFInstance")
 	logger.ConsumerLog.Debugf("registering NF Instance using profile: %+v", nfProfile)
 
 	if err != nil {
@@ -95,6 +105,7 @@ var SendDeregisterNFInstance = func() error {
 	client := Nnrf_NFManagement.NewAPIClient(configuration)
 	apiDeregisterNFInstanceRequest := client.NFInstanceIDDocumentAPI.DeregisterNFInstance(context.Background(), ausfSelf.NfId)
 	res, err := client.NFInstanceIDDocumentAPI.DeregisterNFInstanceExecute(apiDeregisterNFInstanceRequest)
+	defer closeNFManagementResponseBody(res, "DeregisterNFInstance")
 	if err != nil {
 		return err
 	}
@@ -123,6 +134,7 @@ var SendUpdateNFInstance = func(patchItem []models.PatchItem) (receivedNfProfile
 	apiUpdateNFInstanceRequest := client.NFInstanceIDDocumentAPI.UpdateNFInstance(context.Background(), ausfSelf.NfId)
 	apiUpdateNFInstanceRequest = apiUpdateNFInstanceRequest.PatchItem(patchItem)
 	receivedNfProfile, res, err = client.NFInstanceIDDocumentAPI.UpdateNFInstanceExecute(apiUpdateNFInstanceRequest)
+	defer closeNFManagementResponseBody(res, "UpdateNFInstance")
 	if err != nil {
 		if openapiErr, ok := err.(openapi.GenericOpenAPIError); ok {
 			if model := openapiErr.Model(); model != nil {
@@ -159,18 +171,13 @@ var SendCreateSubscription = func(nrfUri string, nrfSubscriptionData models.Subs
 	apiCreateSubscriptionRequest := client.SubscriptionsCollectionAPI.CreateSubscription(context.TODO())
 	apiCreateSubscriptionRequest = apiCreateSubscriptionRequest.SubscriptionData(nrfSubscriptionData)
 	nrfSubData, res, err = client.SubscriptionsCollectionAPI.CreateSubscriptionExecute(apiCreateSubscriptionRequest)
+	defer closeNFManagementResponseBody(res, "CreateSubscription")
 
 	if err == nil {
 		return nrfSubData, nil, nil
 	}
 
 	if res != nil {
-		defer func() {
-			if resCloseErr := res.Body.Close(); resCloseErr != nil {
-				logger.ConsumerLog.Errorf("SendCreateSubscription response cannot close: %+v", resCloseErr)
-			}
-		}()
-
 		if res.Status != err.Error() {
 			logger.ConsumerLog.Errorf("SendCreateSubscription received error response: %v", res.Status)
 			return nil, nil, err
@@ -207,18 +214,13 @@ var SendRemoveSubscription = func(subscriptionId string) (problemDetails *models
 	var res *http.Response
 	apiRemoveSubscriptionRequest := client.SubscriptionIDDocumentAPI.RemoveSubscription(context.Background(), subscriptionId)
 	res, err = client.SubscriptionIDDocumentAPI.RemoveSubscriptionExecute(apiRemoveSubscriptionRequest)
+	defer closeNFManagementResponseBody(res, "RemoveSubscription")
 
 	if err == nil {
 		return nil, nil
 	}
 
 	if res != nil {
-		defer func() {
-			if bodyCloseErr := res.Body.Close(); bodyCloseErr != nil {
-				err = openapi.ReportError("RemoveSubscription's response body cannot close: %w", bodyCloseErr)
-			}
-		}()
-
 		if res.Status != err.Error() {
 			return nil, err
 		}
