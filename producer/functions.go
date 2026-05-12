@@ -335,12 +335,12 @@ func logConfirmFailureAndInformUDM(id string, authType models.AuthType, servingN
 	switch authType {
 	case models.AUTHTYPE__5_G_AKA:
 		logger.Auth5gAkaComfirmLog.Infoln(errStr)
-		if sendErr := sendAuthResultToUDM(id, authType, false, "", udmUrl); sendErr != nil {
+		if sendErr := sendAuthResultToUDM(id, authType, false, servingNetworkName, udmUrl); sendErr != nil {
 			logger.Auth5gAkaComfirmLog.Infoln(sendErr.Error())
 		}
 	case models.AUTHTYPE_EAP_AKA_PRIME:
 		logger.EapAuthComfirmLog.Infoln(errStr)
-		if sendErr := sendAuthResultToUDM(id, authType, false, "", udmUrl); sendErr != nil {
+		if sendErr := sendAuthResultToUDM(id, authType, false, servingNetworkName, udmUrl); sendErr != nil {
 			logger.EapAuthComfirmLog.Infoln(sendErr.Error())
 		}
 	}
