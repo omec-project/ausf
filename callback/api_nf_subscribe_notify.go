@@ -50,5 +50,7 @@ func HTTPNfSubscriptionStatusNotify(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, problemDetails)
 	} else if rsp.Body != nil {
 		c.Data(rsp.Status, "application/json", responseBody.Bytes())
+	} else {
+		c.Status(rsp.Status)
 	}
 }
