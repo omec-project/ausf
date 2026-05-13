@@ -196,11 +196,14 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 
 		// Derive HXRES* from XRES*
 		concat := authInfoResult.AuthenticationVector.Av5GHeAka.GetRand() + authInfoResult.AuthenticationVector.Av5GHeAka.GetXresStar()
-		var hxresStarBytes []byte
-		if bytes, err := hex.DecodeString(concat); err != nil {
+		hxresStarBytes, err := hex.DecodeString(concat)
+		if err != nil {
 			logger.Auth5gAkaComfirmLog.Warnf("decode error: %+v", err)
-		} else {
-			hxresStarBytes = bytes
+			problemDetails := models.NewProblemDetails()
+			problemDetails.SetStatus(http.StatusInternalServerError)
+			problemDetails.SetCause(AV_GENERATION_PROBLEM_ERROR)
+			problemDetails.SetDetail("Failed to derive HXRES*")
+			return nil, "", problemDetails
 		}
 		hxresStarAll := sha256.Sum256(hxresStarBytes)
 		hxresStar := hex.EncodeToString(hxresStarAll[16:]) // last 128 bits
