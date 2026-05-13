@@ -63,7 +63,7 @@ func GenerateRandomNumber() (uint8, error) {
 }
 
 func HandleEapAuthComfirmRequest(request *httpwrapper.Request) *httpwrapper.Response {
-	logger.EapAuthComfirmLog.Infoln("EapAuthComfirmRequest")
+	logger.EapAuthComfirmLog.Infoln("EapAuthConfirmRequest")
 
 	updateEapSession := request.Body.(models.EapSession)
 	eapSessionID := request.Params["authCtxId"]
