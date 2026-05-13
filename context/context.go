@@ -118,6 +118,10 @@ func AddSuciSupiPairToMap(supiOrSuci string, supi string) {
 	ausfContext.suciSupiMap.Store(supiOrSuci, newPair)
 }
 
+func RemoveSuciSupiPairFromMap(supiOrSuci string) {
+	ausfContext.suciSupiMap.Delete(supiOrSuci)
+}
+
 func CheckIfSuciSupiPairExists(ref string) bool {
 	_, ok := ausfContext.suciSupiMap.Load(ref)
 	return ok

@@ -40,6 +40,7 @@ func TestAuth5gAkaComfirmRequestProcedureReturnsNotFoundForMissingUeContext(t *t
 	confirmationID := fmt.Sprintf("confirmation-%s", t.Name())
 	supi := fmt.Sprintf("imsi-%s", t.Name())
 	ausf_context.AddSuciSupiPairToMap(confirmationID, supi)
+	defer ausf_context.RemoveSuciSupiPairFromMap(confirmationID)
 
 	response, problemDetails := producer.Auth5gAkaComfirmRequestProcedure(models.ConfirmationData{}, confirmationID)
 	if response != nil {
@@ -51,6 +52,4 @@ func TestAuth5gAkaComfirmRequestProcedureReturnsNotFoundForMissingUeContext(t *t
 	if got := problemDetails.GetStatus(); got != http.StatusNotFound {
 		t.Fatalf("expected status %d, got %d", http.StatusNotFound, got)
 	}
-
-	ausf_context.GetSelf().UePool.Delete(supi)
 }
