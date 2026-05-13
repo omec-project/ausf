@@ -14,6 +14,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -24,6 +25,17 @@ import (
 	"github.com/omec-project/openapi/v2/Nnrf_NFDiscovery"
 	"github.com/omec-project/openapi/v2/Nudm_UEAU"
 	"github.com/omec-project/openapi/v2/models"
+)
+
+var (
+	resolveUdmURL           = GetUdmUrl
+	executeGenerateAuthData = func(client *Nudm_UEAU.APIClient, supiOrSuci string,
+		authInfoReq models.AuthenticationInfoRequest,
+	) (*models.AuthenticationInfoResult, *http.Response, error) {
+		apiGenerateAuthDataRequest := client.GenerateAuthDataAPI.GenerateAuthData(context.Background(), supiOrSuci)
+		apiGenerateAuthDataRequest = apiGenerateAuthDataRequest.AuthenticationInfoRequest(authInfoReq)
+		return client.GenerateAuthDataAPI.GenerateAuthDataExecute(apiGenerateAuthDataRequest)
+	}
 )
 
 func intToByteArray(i int) []byte {

@@ -6,7 +6,6 @@
 package producer
 
 import (
-	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -152,11 +151,9 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 		authInfoReq.ResynchronizationInfo = updateAuthenticationInfo.ResynchronizationInfo
 	}
 
-	udmUrl := GetUdmUrl(self.NrfUri)
+	udmUrl := resolveUdmURL(self.NrfUri)
 	client := createClientToUdmUeau(udmUrl)
-	apiGenerateAuthDataRequest := client.GenerateAuthDataAPI.GenerateAuthData(context.Background(), supiOrSuci)
-	apiGenerateAuthDataRequest = apiGenerateAuthDataRequest.AuthenticationInfoRequest(authInfoReq)
-	authInfoResult, rsp, err := client.GenerateAuthDataAPI.GenerateAuthDataExecute(apiGenerateAuthDataRequest)
+	authInfoResult, rsp, err := executeGenerateAuthData(client, supiOrSuci, authInfoReq)
 	defer func() {
 		if rsp == nil || rsp.Body == nil {
 			return
@@ -182,10 +179,6 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 	ausfUeContext.ServingNetworkName = snName
 	ausfUeContext.AuthStatus = models.AUTHRESULT_AUTHENTICATION_ONGOING
 	ausfUeContext.UdmUeauUrl = udmUrl
-	ausf_context.AddAusfUeContextToPool(ausfUeContext)
-
-	logger.UeAuthPostLog.Infof("add SuciSupiPair (%s, %s) to map", supiOrSuci, ueid)
-	ausf_context.AddSuciSupiPairToMap(supiOrSuci, ueid)
 
 	locationURI := self.Url + "/nausf-auth/v1/ue-authentications/" + supiOrSuci
 	putLink := locationURI
@@ -211,17 +204,24 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 
 		// Derive Kseaf from Kausf
 		Kausf := authInfoResult.AuthenticationVector.Av5GHeAka.GetKausf()
-		var KausfDecode []byte
 		ausfDecode, err := hex.DecodeString(Kausf)
 		if err != nil {
 			logger.Auth5gAkaComfirmLog.Warnf("AUSF decode failed: %+v", err)
-		} else {
-			KausfDecode = ausfDecode
+			problemDetails := models.NewProblemDetails()
+			problemDetails.SetStatus(http.StatusInternalServerError)
+			problemDetails.SetCause(AV_GENERATION_PROBLEM_ERROR)
+			problemDetails.SetDetail("Failed to decode Kausf")
+			return nil, "", problemDetails
 		}
 		P0 := []byte(snName)
-		Kseaf, err := ueauth.GetKDFValue(KausfDecode, ueauth.FC_FOR_KSEAF_DERIVATION, P0, ueauth.KDFLen(P0))
+		Kseaf, err := ueauth.GetKDFValue(ausfDecode, ueauth.FC_FOR_KSEAF_DERIVATION, P0, ueauth.KDFLen(P0))
 		if err != nil {
 			logger.Auth5gAkaComfirmLog.Error(err)
+			problemDetails := models.NewProblemDetails()
+			problemDetails.SetStatus(http.StatusInternalServerError)
+			problemDetails.SetCause(AV_GENERATION_PROBLEM_ERROR)
+			problemDetails.SetDetail("Failed to derive Kseaf")
+			return nil, "", problemDetails
 		}
 		ausfUeContext.XresStar = authInfoResult.AuthenticationVector.Av5GHeAka.GetXresStar()
 		ausfUeContext.Kausf = Kausf
@@ -256,18 +256,26 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 		ausfUeContext.K_aut = K_aut
 		Kausf := EMSK[0:32]
 		ausfUeContext.Kausf = Kausf
-		var KausfDecode []byte
 		if ausfDecode, err := hex.DecodeString(Kausf); err != nil {
 			logger.Auth5gAkaComfirmLog.Warnf("AUSF decode failed: %+v", err)
+			problemDetails := models.NewProblemDetails()
+			problemDetails.SetStatus(http.StatusInternalServerError)
+			problemDetails.SetCause(AV_GENERATION_PROBLEM_ERROR)
+			problemDetails.SetDetail("Failed to decode Kausf")
+			return nil, "", problemDetails
 		} else {
-			KausfDecode = ausfDecode
+			P0 := []byte(snName)
+			Kseaf, err := ueauth.GetKDFValue(ausfDecode, ueauth.FC_FOR_KSEAF_DERIVATION, P0, ueauth.KDFLen(P0))
+			if err != nil {
+				logger.Auth5gAkaComfirmLog.Error(err)
+				problemDetails := models.NewProblemDetails()
+				problemDetails.SetStatus(http.StatusInternalServerError)
+				problemDetails.SetCause(AV_GENERATION_PROBLEM_ERROR)
+				problemDetails.SetDetail("Failed to derive Kseaf")
+				return nil, "", problemDetails
+			}
+			ausfUeContext.Kseaf = hex.EncodeToString(Kseaf)
 		}
-		P0 := []byte(snName)
-		Kseaf, err := ueauth.GetKDFValue(KausfDecode, ueauth.FC_FOR_KSEAF_DERIVATION, P0, ueauth.KDFLen(P0))
-		if err != nil {
-			logger.Auth5gAkaComfirmLog.Error(err)
-		}
-		ausfUeContext.Kseaf = hex.EncodeToString(Kseaf)
 
 		var eapPkt radius.EapPacket
 		randIdentifier, err := GenerateRandomNumber()
@@ -327,7 +335,17 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 			String: openapi.PtrString(base64.StdEncoding.EncodeToString(encodedPktAfterMAC)),
 		}
 		responseBody.SetVar5gAuthData(uEAuthenticationCtx5gAuthData)
+	default:
+		problemDetails := models.NewProblemDetails()
+		problemDetails.SetStatus(http.StatusInternalServerError)
+		problemDetails.SetCause(UPSTREAM_SERVER_ERROR)
+		problemDetails.SetDetail(fmt.Sprintf("unsupported auth type: %s", authInfoResult.AuthType))
+		return nil, "", problemDetails
 	}
+
+	ausf_context.AddAusfUeContextToPool(ausfUeContext)
+	logger.UeAuthPostLog.Infof("add SuciSupiPair (%s, %s) to map", supiOrSuci, ueid)
+	ausf_context.AddSuciSupiPairToMap(supiOrSuci, ueid)
 
 	putLinkPtr := models.NewLink()
 	putLinkPtr.SetHref(putLink)
