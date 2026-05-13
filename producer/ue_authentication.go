@@ -355,7 +355,7 @@ func Auth5gAkaComfirmRequestProcedure(updateConfirmationData models.Confirmation
 			ConfirmationDataResponseID)
 		problemDetails := models.NewProblemDetails()
 		problemDetails.SetCause(USER_NOT_FOUND_ERROR)
-		problemDetails.SetStatus(http.StatusBadRequest)
+		problemDetails.SetStatus(http.StatusNotFound)
 		return nil, problemDetails
 	}
 
@@ -364,7 +364,7 @@ func Auth5gAkaComfirmRequestProcedure(updateConfirmationData models.Confirmation
 		logger.Auth5gAkaComfirmLog.Infof("SUPI does not exist, confirmation failed (queried by %s)", currentSupi)
 		problemDetails := models.NewProblemDetails()
 		problemDetails.SetCause(USER_NOT_FOUND_ERROR)
-		problemDetails.SetStatus(http.StatusBadRequest)
+		problemDetails.SetStatus(http.StatusNotFound)
 		return nil, problemDetails
 	}
 
