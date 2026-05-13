@@ -96,7 +96,7 @@ var registerNF = func(registerCtx context.Context, newPlmnConfig []models.PlmnId
 				continue
 			}
 			logger.NrfRegistrationLog.Infoln("register AUSF instance to NRF with updated profile succeeded")
-			startKeepAliveTimer(nfProfile.GetHeartBeatTimer(), newPlmnConfig)
+			startKeepAliveTimer(getProfileHeartbeatTimer(nfProfile), newPlmnConfig)
 			return
 		}
 	}
@@ -134,7 +134,14 @@ func heartbeatNF(plmnConfig []models.PlmnId) {
 	} else {
 		logger.NrfRegistrationLog.Debugln("AUSF update NF instance (heartbeat) succeeded")
 	}
-	startKeepAliveTimer(nfProfile.GetHeartBeatTimer(), plmnConfig)
+	startKeepAliveTimer(getProfileHeartbeatTimer(nfProfile), plmnConfig)
+}
+
+func getProfileHeartbeatTimer(nfProfile *models.NFProfile) int32 {
+	if nfProfile == nil {
+		return defaultHeartbeatTimer
+	}
+	return nfProfile.GetHeartBeatTimer()
 }
 
 func shouldRegister(problemDetails *models.ProblemDetails, err error) bool {

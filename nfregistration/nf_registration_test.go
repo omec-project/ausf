@@ -322,6 +322,27 @@ func TestHeartbeatNF_WhenNfUpdateFails_ThenNfRegistersIsCalled(t *testing.T) {
 	}
 }
 
+func TestHeartbeatNF_UsesDefaultTimerWhenUpdateReturnsNilProfile(t *testing.T) {
+	keepAliveTimer = time.NewTimer(60 * time.Second)
+	originalSendUpdateNFInstance := consumer.SendUpdateNFInstance
+	defer func() {
+		consumer.SendUpdateNFInstance = originalSendUpdateNFInstance
+		if keepAliveTimer != nil {
+			keepAliveTimer.Stop()
+		}
+	}()
+
+	consumer.SendUpdateNFInstance = func(patchItem []models.PatchItem) (*models.NFProfile, *models.ProblemDetails, error) {
+		return nil, nil, nil
+	}
+
+	heartbeatNF(nil)
+
+	if keepAliveTimer == nil {
+		t.Error("expected keepAliveTimer to be initialized when update returns nil profile")
+	}
+}
+
 func TestStartKeepAliveTimer_UsesProfileTimerOnlyWhenGreaterThanZero(t *testing.T) {
 	testCases := []struct {
 		name             string
