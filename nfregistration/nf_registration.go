@@ -43,6 +43,9 @@ func StartNfRegistrationService(ctx context.Context, plmnConfigChan <-chan []mod
 			if registerCancel != nil {
 				registerCancel()
 			}
+			keepAliveTimerMutex.Lock()
+			stopKeepAliveTimer()
+			keepAliveTimerMutex.Unlock()
 			logger.NrfRegistrationLog.Infoln("NF registration service shutting down")
 			return
 		case newPlmnConfig, ok := <-plmnConfigChan:
@@ -50,6 +53,9 @@ func StartNfRegistrationService(ctx context.Context, plmnConfigChan <-chan []mod
 				if registerCancel != nil {
 					registerCancel()
 				}
+				keepAliveTimerMutex.Lock()
+				stopKeepAliveTimer()
+				keepAliveTimerMutex.Unlock()
 				logger.NrfRegistrationLog.Infoln("PLMN config channel closed; stopping NF registration service")
 				return
 			}

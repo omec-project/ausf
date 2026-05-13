@@ -212,7 +212,8 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 		// Derive Kseaf from Kausf
 		Kausf := authInfoResult.AuthenticationVector.Av5GHeAka.GetKausf()
 		var KausfDecode []byte
-		if ausfDecode, err := hex.DecodeString(Kausf); err != nil {
+		ausfDecode, err := hex.DecodeString(Kausf)
+		if err != nil {
 			logger.Auth5gAkaComfirmLog.Warnf("AUSF decode failed: %+v", err)
 		} else {
 			KausfDecode = ausfDecode
