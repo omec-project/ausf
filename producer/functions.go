@@ -36,6 +36,13 @@ var (
 		apiGenerateAuthDataRequest = apiGenerateAuthDataRequest.AuthenticationInfoRequest(authInfoReq)
 		return client.GenerateAuthDataAPI.GenerateAuthDataExecute(apiGenerateAuthDataRequest)
 	}
+	executeDeleteAuth = func(client *Nudm_UEAU.APIClient, supi, authEventID string,
+		authEvent models.AuthEvent,
+	) (*http.Response, error) {
+		apiDeleteAuthRequest := client.DeleteAuthAPI.DeleteAuth(context.Background(), supi, authEventID)
+		apiDeleteAuthRequest = apiDeleteAuthRequest.AuthEvent(authEvent)
+		return client.DeleteAuthAPI.DeleteAuthExecute(apiDeleteAuthRequest)
+	}
 )
 
 func intToByteArray(i int) []byte {
@@ -323,15 +330,14 @@ func createClientToUdmUeau(udmUrl string) *Nudm_UEAU.APIClient {
 }
 
 func sendAuthResultToUDM(id string, authType models.AuthType, success bool, servingNetworkName, udmUrl string) error {
-	var authEvent models.AuthEvent
-	authEvent.TimeStamp = time.Now()
-	authEvent.AuthType = authType
-	authEvent.Success = success
-	authEvent.ServingNetworkName = servingNetworkName
+	if servingNetworkName == "" {
+		servingNetworkName = "5G:NSWO"
+	}
+	authEvent := models.NewAuthEvent(ausf_context.GetSelf().NfId, success, time.Now(), authType, servingNetworkName)
 
 	client := createClientToUdmUeau(udmUrl)
 	apiConfirmAuthRequest := client.ConfirmAuthAPI.ConfirmAuth(context.Background(), id)
-	apiConfirmAuthRequest = apiConfirmAuthRequest.AuthEvent(authEvent)
+	apiConfirmAuthRequest = apiConfirmAuthRequest.AuthEvent(*authEvent)
 	_, resp, confirmAuthErr := client.ConfirmAuthAPI.ConfirmAuthExecute(apiConfirmAuthRequest)
 	if resp != nil && resp.Body != nil {
 		defer func() {
@@ -341,6 +347,25 @@ func sendAuthResultToUDM(id string, authType models.AuthType, success bool, serv
 		}()
 	}
 	return confirmAuthErr
+}
+
+func deleteAuthResultFromUDM(supi, authEventID string, authType models.AuthType, servingNetworkName, udmUrl string) error {
+	if servingNetworkName == "" {
+		servingNetworkName = "5G:NSWO"
+	}
+	authEvent := models.NewAuthEvent(ausf_context.GetSelf().NfId, false, time.Now(), authType, servingNetworkName)
+	authEvent.SetAuthRemovalInd(true)
+
+	client := createClientToUdmUeau(udmUrl)
+	resp, deleteAuthErr := executeDeleteAuth(client, supi, authEventID, *authEvent)
+	if resp != nil && resp.Body != nil {
+		defer func() {
+			if rspCloseErr := resp.Body.Close(); rspCloseErr != nil {
+				logger.UeAuthPostLog.Errorf("DeleteAuthAPI response body cannot close: %+v", rspCloseErr)
+			}
+		}()
+	}
+	return deleteAuthErr
 }
 
 func logConfirmFailureAndInformUDM(id string, authType models.AuthType, servingNetworkName, errStr, udmUrl string) {

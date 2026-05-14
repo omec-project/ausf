@@ -128,9 +128,41 @@ func HTTPUeAuthenticationsAuthCtxId5gAkaConfirmationPut(c *gin.Context) {
 
 // Post /ue-authentications/deregister
 func HTTPUeAuthenticationsDeregisterPost(c *gin.Context) {
-	detail := "Handle Post /ue-authentications/deregister is not implemented"
-	logger.UeAuthPostLog.Warnln(detail)
-	writeNotImplementedProblem(c, detail)
+	logger.UeAuthPostLog.Infoln("Handle Post /ue-authentications/deregister")
+	var deregistrationInfo models.DeregistrationInfo
+
+	requestBody, err := c.GetRawData()
+	if err != nil {
+		problemDetail := utils.ProblemDetailsSystemFailure(err.Error())
+		logger.UeAuthPostLog.Errorf("Get Request Body error: %+v", err)
+		c.JSON(http.StatusInternalServerError, problemDetail)
+		return
+	}
+
+	err = openapi.Decode(&deregistrationInfo, requestBody, "application/json")
+	if err != nil {
+		problemDetail := "[Request Body] " + err.Error()
+		rsp := utils.ProblemDetailsMalformedRequestSyntax(problemDetail)
+		logger.UeAuthPostLog.Errorln(problemDetail)
+		c.JSON(http.StatusBadRequest, rsp)
+		return
+	}
+
+	req := httpwrapper.NewRequest(c.Request, deregistrationInfo)
+	rsp := producer.HandleUeAuthenticationsDeregisterRequest(req)
+	if rsp.Body == nil {
+		c.Status(rsp.Status)
+		return
+	}
+
+	responseBody, err := openapi.SetBody(rsp.Body, "application/json")
+	if err != nil {
+		logger.UeAuthPostLog.Errorln(err)
+		problemDetails := utils.ProblemDetailsSystemFailure(err.Error())
+		c.JSON(http.StatusInternalServerError, problemDetails)
+	} else {
+		c.Data(rsp.Status, "application/json", responseBody.Bytes())
+	}
 }
 
 // Post /ue-authentications

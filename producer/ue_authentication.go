@@ -1,7 +1,6 @@
+// Copyright (c) 2026 Intel Corporation
 // Copyright 2019 free5GC.org
-//
 // SPDX-License-Identifier: Apache-2.0
-//
 
 package producer
 
@@ -113,9 +112,119 @@ func HandleUeAuthPostRequest(request *httpwrapper.Request) *httpwrapper.Response
 	return httpwrapper.NewResponse(http.StatusForbidden, nil, problemDetails)
 }
 
-// func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationInfo) (
-//
-//	response *models.UeAuthenticationCtx, locationURI string, problemDetails *models.ProblemDetails) {
+func HandleDelete5gAkaAuthenticationResultRequest(request *httpwrapper.Request) *httpwrapper.Response {
+	problemDetails := DeleteAuthenticationResultProcedure(request.Params["authCtxId"], models.AUTHTYPE__5_G_AKA)
+	if problemDetails != nil {
+		return httpwrapper.NewResponse(int(problemDetails.GetStatus()), nil, problemDetails)
+	}
+	return httpwrapper.NewResponse(http.StatusNoContent, nil, nil)
+}
+
+func HandleDeleteEapAuthenticationResultRequest(request *httpwrapper.Request) *httpwrapper.Response {
+	problemDetails := DeleteAuthenticationResultProcedure(request.Params["authCtxId"], models.AUTHTYPE_EAP_AKA_PRIME)
+	if problemDetails != nil {
+		return httpwrapper.NewResponse(int(problemDetails.GetStatus()), nil, problemDetails)
+	}
+	return httpwrapper.NewResponse(http.StatusNoContent, nil, nil)
+}
+
+func HandleUeAuthenticationsDeregisterRequest(request *httpwrapper.Request) *httpwrapper.Response {
+	deregistrationInfo := request.Body.(models.DeregistrationInfo)
+	problemDetails := DeregisterAuthContextProcedure(deregistrationInfo)
+	if problemDetails != nil {
+		return httpwrapper.NewResponse(int(problemDetails.GetStatus()), nil, problemDetails)
+	}
+	return httpwrapper.NewResponse(http.StatusNoContent, nil, nil)
+}
+
+func deleteAuthContextLocally(authCtxID, supi string) {
+	ausf_context.RemoveSuciSupiPairFromMap(authCtxID)
+	if !ausf_context.HasSuciSupiPairForSupi(supi) {
+		ausf_context.RemoveAusfUeContextFromPool(supi)
+	}
+}
+
+func authTypeFromContext(ausfCurrentContext *ausf_context.AusfUeContext) models.AuthType {
+	if ausfCurrentContext == nil {
+		return models.AUTHTYPE__5_G_AKA
+	}
+	if ausfCurrentContext.XRES != "" || ausfCurrentContext.K_aut != "" {
+		return models.AUTHTYPE_EAP_AKA_PRIME
+	}
+	return models.AUTHTYPE__5_G_AKA
+}
+
+func DeleteAuthenticationResultProcedure(authCtxID string, authType models.AuthType) *models.ProblemDetails {
+	if !ausf_context.CheckIfSuciSupiPairExists(authCtxID) {
+		problemDetails := models.NewProblemDetails()
+		problemDetails.SetCause(USER_NOT_FOUND_ERROR)
+		problemDetails.SetStatus(http.StatusNotFound)
+		return problemDetails
+	}
+
+	currentSupi := ausf_context.GetSupiFromSuciSupiMap(authCtxID)
+	if !ausf_context.CheckIfAusfUeContextExists(currentSupi) {
+		problemDetails := models.NewProblemDetails()
+		problemDetails.SetCause(USER_NOT_FOUND_ERROR)
+		problemDetails.SetStatus(http.StatusNotFound)
+		return problemDetails
+	}
+
+	ausfCurrentContext := ausf_context.GetAusfUeContext(currentSupi)
+	if err := deleteAuthResultFromUDM(currentSupi, authCtxID, authType, ausfCurrentContext.ServingNetworkName,
+		ausfCurrentContext.UdmUeauUrl); err != nil {
+		problemDetails := models.NewProblemDetails()
+		problemDetails.SetStatus(http.StatusInternalServerError)
+		problemDetails.SetCause(UPSTREAM_SERVER_ERROR)
+		return problemDetails
+	}
+
+	deleteAuthContextLocally(authCtxID, currentSupi)
+	return nil
+}
+
+func DeregisterAuthContextProcedure(deregistrationInfo models.DeregistrationInfo) *models.ProblemDetails {
+	supi := deregistrationInfo.GetSupi()
+	authCtxIDs := ausf_context.ListSuciSupiPairsForSupi(supi)
+
+	if len(authCtxIDs) == 0 {
+		if ausf_context.CheckIfAusfUeContextExists(supi) {
+			ausf_context.RemoveAusfUeContextFromPool(supi)
+		}
+		return nil
+	}
+
+	var ausfCurrentContext *ausf_context.AusfUeContext
+	if ausf_context.CheckIfAusfUeContextExists(supi) {
+		ausfCurrentContext = ausf_context.GetAusfUeContext(supi)
+	}
+
+	servingNetworkName := ""
+	udmURL := resolveUdmURL(ausf_context.GetSelf().NrfUri)
+	authType := authTypeFromContext(ausfCurrentContext)
+	if ausfCurrentContext != nil {
+		servingNetworkName = ausfCurrentContext.ServingNetworkName
+		if ausfCurrentContext.UdmUeauUrl != "" {
+			udmURL = ausfCurrentContext.UdmUeauUrl
+		}
+	}
+
+	for _, authCtxID := range authCtxIDs {
+		if err := deleteAuthResultFromUDM(supi, authCtxID, authType, servingNetworkName, udmURL); err != nil {
+			problemDetails := models.NewProblemDetails()
+			problemDetails.SetStatus(http.StatusInternalServerError)
+			problemDetails.SetCause(UPSTREAM_SERVER_ERROR)
+			return problemDetails
+		}
+	}
+
+	for _, authCtxID := range authCtxIDs {
+		ausf_context.RemoveSuciSupiPairFromMap(authCtxID)
+	}
+	ausf_context.RemoveAusfUeContextFromPool(supi)
+	return nil
+}
+
 func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationInfo) (*models.UEAuthenticationCtx,
 	string, *models.ProblemDetails,
 ) {
