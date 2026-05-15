@@ -14,17 +14,35 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
+	"net/http"
 	"strconv"
 	"time"
 
-	"github.com/antihax/optional"
 	"github.com/bronze1man/radius"
 	"github.com/omec-project/ausf/consumer"
 	ausf_context "github.com/omec-project/ausf/context"
 	"github.com/omec-project/ausf/logger"
-	"github.com/omec-project/openapi/Nnrf_NFDiscovery"
-	Nudm_UEAU "github.com/omec-project/openapi/Nudm_UEAuthentication"
-	"github.com/omec-project/openapi/models"
+	"github.com/omec-project/openapi/v2/Nnrf_NFDiscovery"
+	"github.com/omec-project/openapi/v2/Nudm_UEAU"
+	"github.com/omec-project/openapi/v2/models"
+)
+
+var (
+	resolveUdmURL           = GetUdmUrl
+	executeGenerateAuthData = func(client *Nudm_UEAU.APIClient, supiOrSuci string,
+		authInfoReq models.AuthenticationInfoRequest,
+	) (*models.AuthenticationInfoResult, *http.Response, error) {
+		apiGenerateAuthDataRequest := client.GenerateAuthDataAPI.GenerateAuthData(context.Background(), supiOrSuci)
+		apiGenerateAuthDataRequest = apiGenerateAuthDataRequest.AuthenticationInfoRequest(authInfoReq)
+		return client.GenerateAuthDataAPI.GenerateAuthDataExecute(apiGenerateAuthDataRequest)
+	}
+	executeDeleteAuth = func(client *Nudm_UEAU.APIClient, supi, authEventID string,
+		authEvent models.AuthEvent,
+	) (*http.Response, error) {
+		apiDeleteAuthRequest := client.DeleteAuthAPI.DeleteAuth(context.Background(), supi, authEventID)
+		apiDeleteAuthRequest = apiDeleteAuthRequest.AuthEvent(authEvent)
+		return client.DeleteAuthAPI.DeleteAuthExecute(apiDeleteAuthRequest)
+	}
 )
 
 func intToByteArray(i int) []byte {
@@ -260,57 +278,106 @@ func ConstructEapNoTypePkt(code radius.EapCode, pktID uint8) string {
 
 func GetUdmUrl(nrfUri string) string {
 	udmUrl := "https://localhost:29503" // default
-	nfDiscoverParam := Nnrf_NFDiscovery.SearchNFInstancesParamOpts{
-		ServiceNames: optional.NewInterface([]models.ServiceName{models.ServiceName_NUDM_UEAU}),
+	configureSearchUDMRequest := func(request Nnrf_NFDiscovery.ApiSearchNFInstancesRequest) Nnrf_NFDiscovery.ApiSearchNFInstancesRequest {
+		return request.ServiceNames([]models.ServiceName{models.SERVICENAME_NUDM_UEAU})
 	}
-	res, err := consumer.SendSearchNFInstances(nrfUri, models.NfType_UDM, models.NfType_AUSF, &nfDiscoverParam)
+	res, err := consumer.SendSearchNFInstances(nrfUri, models.NFTYPE_UDM, models.NFTYPE_AUSF, configureSearchUDMRequest)
 	if err != nil {
 		logger.UeAuthPostLog.Errorln("[Search UDM UEAU] ", err.Error())
-	} else if len(res.NfInstances) > 0 {
-		udmInstance := res.NfInstances[0]
-		if len(udmInstance.Ipv4Addresses) > 0 && udmInstance.NfServices != nil {
-			ueauService := (*udmInstance.NfServices)[0]
-			ueauEndPoint := (*ueauService.IpEndPoints)[0]
-			udmUrl = string(ueauService.Scheme) + "://" + ueauEndPoint.Ipv4Address + ":" + strconv.Itoa(int(ueauEndPoint.Port))
+	}
+	if res == nil || len(res.NfInstances) == 0 {
+		directRes, directErr := consumer.SendNfDiscoveryToNrf(context.Background(), nrfUri, models.NFTYPE_UDM, models.NFTYPE_AUSF, configureSearchUDMRequest)
+		if directErr != nil {
+			logger.UeAuthPostLog.Errorln("[Direct Search UDM UEAU] ", directErr.Error())
 		}
+		if directRes != nil {
+			res = directRes
+		}
+	}
+	if res != nil && len(res.NfInstances) > 0 {
+		for _, udmInstance := range res.NfInstances {
+			for _, ueauService := range udmInstance.NfServices {
+				if ueauService.GetServiceName() != models.SERVICENAME_NUDM_UEAU {
+					continue
+				}
+				if apiPrefix, ok := ueauService.GetApiPrefixOk(); ok && apiPrefix != nil && *apiPrefix != "" {
+					return *apiPrefix
+				}
+				for _, ueauEndPoint := range ueauService.IpEndPoints {
+					if ueauEndPoint.GetIpv4Address() == "" || ueauEndPoint.GetPort() == 0 {
+						continue
+					}
+					return string(ueauService.GetScheme()) + "://" + ueauEndPoint.GetIpv4Address() + ":" + strconv.Itoa(int(ueauEndPoint.GetPort()))
+				}
+			}
+		}
+		logger.UeAuthPostLog.Errorln("[search UDM UEAU] no usable UDM service endpoints found")
 	} else {
-		logger.UeAuthPostLog.Errorln("[Search UDM UEAU] len(NfInstances) = 0")
+		logger.UeAuthPostLog.Errorln("[search UDM UEAU] len(NfInstances) = 0")
 	}
 	return udmUrl
 }
 
 func createClientToUdmUeau(udmUrl string) *Nudm_UEAU.APIClient {
-	cfg := Nudm_UEAU.NewConfiguration()
-	cfg.SetBasePath(udmUrl)
-	clientAPI := Nudm_UEAU.NewAPIClient(cfg)
+	configuration := Nudm_UEAU.NewConfiguration()
+	serverConfig := &configuration.Servers[0]
+	if apiRootVar, exists := serverConfig.Variables["apiRoot"]; exists {
+		apiRootVar.DefaultValue = udmUrl
+		serverConfig.Variables["apiRoot"] = apiRootVar
+	}
+	clientAPI := Nudm_UEAU.NewAPIClient(configuration)
 	return clientAPI
 }
 
 func sendAuthResultToUDM(id string, authType models.AuthType, success bool, servingNetworkName, udmUrl string) error {
-	timeNow := time.Now()
-	timePtr := &timeNow
-
-	var authEvent models.AuthEvent
-	authEvent.TimeStamp = timePtr
-	authEvent.AuthType = authType
-	authEvent.Success = success
-	authEvent.ServingNetworkName = servingNetworkName
+	if servingNetworkName == "" {
+		servingNetworkName = "5G:NSWO"
+	}
+	authEvent := models.NewAuthEvent(ausf_context.GetSelf().NfId, success, time.Now(), authType, servingNetworkName)
 
 	client := createClientToUdmUeau(udmUrl)
-	_, _, confirmAuthErr := client.ConfirmAuthApi.ConfirmAuth(context.Background(), id, authEvent)
+	apiConfirmAuthRequest := client.ConfirmAuthAPI.ConfirmAuth(context.Background(), id)
+	apiConfirmAuthRequest = apiConfirmAuthRequest.AuthEvent(*authEvent)
+	_, resp, confirmAuthErr := client.ConfirmAuthAPI.ConfirmAuthExecute(apiConfirmAuthRequest)
+	if resp != nil && resp.Body != nil {
+		defer func() {
+			if rspCloseErr := resp.Body.Close(); rspCloseErr != nil {
+				logger.UeAuthPostLog.Errorf("ConfirmAuthAPI response body cannot close: %+v", rspCloseErr)
+			}
+		}()
+	}
 	return confirmAuthErr
+}
+
+func deleteAuthResultFromUDM(supi, authEventID string, authType models.AuthType, servingNetworkName, udmUrl string) error {
+	if servingNetworkName == "" {
+		servingNetworkName = "5G:NSWO"
+	}
+	authEvent := models.NewAuthEvent(ausf_context.GetSelf().NfId, false, time.Now(), authType, servingNetworkName)
+	authEvent.SetAuthRemovalInd(true)
+
+	client := createClientToUdmUeau(udmUrl)
+	resp, deleteAuthErr := executeDeleteAuth(client, supi, authEventID, *authEvent)
+	if resp != nil && resp.Body != nil {
+		defer func() {
+			if rspCloseErr := resp.Body.Close(); rspCloseErr != nil {
+				logger.UeAuthPostLog.Errorf("DeleteAuthAPI response body cannot close: %+v", rspCloseErr)
+			}
+		}()
+	}
+	return deleteAuthErr
 }
 
 func logConfirmFailureAndInformUDM(id string, authType models.AuthType, servingNetworkName, errStr, udmUrl string) {
 	switch authType {
-	case models.AuthType__5_G_AKA:
+	case models.AUTHTYPE__5_G_AKA:
 		logger.Auth5gAkaComfirmLog.Infoln(errStr)
-		if sendErr := sendAuthResultToUDM(id, authType, false, "", udmUrl); sendErr != nil {
+		if sendErr := sendAuthResultToUDM(id, authType, false, servingNetworkName, udmUrl); sendErr != nil {
 			logger.Auth5gAkaComfirmLog.Infoln(sendErr.Error())
 		}
-	case models.AuthType_EAP_AKA_PRIME:
+	case models.AUTHTYPE_EAP_AKA_PRIME:
 		logger.EapAuthComfirmLog.Infoln(errStr)
-		if sendErr := sendAuthResultToUDM(id, authType, false, "", udmUrl); sendErr != nil {
+		if sendErr := sendAuthResultToUDM(id, authType, false, servingNetworkName, udmUrl); sendErr != nil {
 			logger.EapAuthComfirmLog.Infoln(sendErr.Error())
 		}
 	}

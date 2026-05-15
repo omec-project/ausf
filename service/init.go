@@ -27,8 +27,8 @@ import (
 	"github.com/omec-project/ausf/nfregistration"
 	"github.com/omec-project/ausf/polling"
 	"github.com/omec-project/ausf/ueauthentication"
-	"github.com/omec-project/openapi/models"
-	nrfCache "github.com/omec-project/openapi/nrfcache"
+	"github.com/omec-project/openapi/v2/models"
+	nrfCache "github.com/omec-project/openapi/v2/nrfcache"
 	"github.com/omec-project/util/http2_util"
 	utilLogger "github.com/omec-project/util/logger"
 	"github.com/urfave/cli/v3"
@@ -122,7 +122,7 @@ func (ausf *AUSF) Start() {
 
 	if self.EnableNrfCaching {
 		logger.InitLog.Infoln("enable NRF caching feature")
-		nrfCache.InitNrfCaching(self.NrfCacheEvictionInterval*time.Second, consumer.SendNfDiscoveryToNrf)
+		nrfCache.InitNrfCaching(self.NrfCacheEvictionInterval*time.Second, consumer.SendNfDiscoveryToNrfCacheQuery)
 	}
 
 	plmnConfigChan := make(chan []models.PlmnId, 1)

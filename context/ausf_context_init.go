@@ -14,7 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/omec-project/ausf/factory"
 	"github.com/omec-project/ausf/logger"
-	"github.com/omec-project/openapi/models"
+	"github.com/omec-project/openapi/v2/models"
 )
 
 func InitAusfContext(context *AUSFContext) {
@@ -39,9 +39,9 @@ func InitAusfContext(context *AUSFContext) {
 		}
 
 		if sbi.Scheme == "https" {
-			context.UriScheme = models.UriScheme_HTTPS
+			context.UriScheme = models.URISCHEME_HTTPS
 		} else {
-			context.UriScheme = models.UriScheme_HTTP
+			context.UriScheme = models.URISCHEME_HTTP
 		}
 		if tls := sbi.TLS; tls != nil {
 			if tls.Key != "" {
@@ -75,35 +75,35 @@ func InitAusfContext(context *AUSFContext) {
 	}
 
 	// context.NfService
-	context.NfService = make(map[models.ServiceName]models.NfService)
+	context.NfService = make(map[models.ServiceName]models.NFService)
 	AddNfServices(&context.NfService, &config, context)
 	logger.ContextLog.Infoln("ausf context:", context)
 }
 
-func AddNfServices(serviceMap *map[models.ServiceName]models.NfService, config *factory.Config, context *AUSFContext) {
-	var nfService models.NfService
+func AddNfServices(serviceMap *map[models.ServiceName]models.NFService, config *factory.Config, context *AUSFContext) {
+	var nfService models.NFService
 	var ipEndPoints []models.IpEndPoint
-	var nfServiceVersions []models.NfServiceVersion
+	var nfServiceVersions []models.NFServiceVersion
 	services := *serviceMap
 
 	// nausf-auth
 	nfService.ServiceInstanceId = context.NfId
-	nfService.ServiceName = models.ServiceName_NAUSF_AUTH
+	nfService.ServiceName = models.SERVICENAME_NAUSF_AUTH
+	ipEndPoint := models.NewIpEndPoint()
+	ipEndPoint.SetIpv4Address(context.RegisterIPv4)
+	ipEndPoint.SetPort(int32(context.SBIPort))
 
-	var ipEndPoint models.IpEndPoint
-	ipEndPoint.Ipv4Address = context.RegisterIPv4
-	ipEndPoint.Port = int32(context.SBIPort)
-	ipEndPoints = append(ipEndPoints, ipEndPoint)
+	ipEndPoints = append(ipEndPoints, *ipEndPoint)
 
-	var nfServiceVersion models.NfServiceVersion
+	var nfServiceVersion models.NFServiceVersion
 	nfServiceVersion.ApiFullVersion = config.Info.Version
 	nfServiceVersion.ApiVersionInUri = "v1"
 	nfServiceVersions = append(nfServiceVersions, nfServiceVersion)
 
 	nfService.Scheme = context.UriScheme
-	nfService.NfServiceStatus = models.NfServiceStatus_REGISTERED
+	nfService.NfServiceStatus = models.NFSERVICESTATUS_REGISTERED
 
-	nfService.IpEndPoints = &ipEndPoints
-	nfService.Versions = &nfServiceVersions
-	services[models.ServiceName_NAUSF_AUTH] = nfService
+	nfService.IpEndPoints = ipEndPoints
+	nfService.Versions = nfServiceVersions
+	services[models.SERVICENAME_NAUSF_AUTH] = nfService
 }

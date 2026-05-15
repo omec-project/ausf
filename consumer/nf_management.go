@@ -7,60 +7,72 @@ package consumer
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"strings"
 
 	ausfContext "github.com/omec-project/ausf/context"
 	"github.com/omec-project/ausf/logger"
-	"github.com/omec-project/openapi"
-	"github.com/omec-project/openapi/Nnrf_NFManagement"
-	"github.com/omec-project/openapi/models"
+	"github.com/omec-project/openapi/v2"
+	"github.com/omec-project/openapi/v2/Nnrf_NFManagement"
+	"github.com/omec-project/openapi/v2/models"
 )
 
-func getNfProfile(ausfContext *ausfContext.AUSFContext, plmnConfig []models.PlmnId) (profile models.NfProfile, err error) {
+func closeNFManagementResponseBody(res *http.Response, operation string) {
+	if res == nil || res.Body == nil {
+		return
+	}
+	if bodyCloseErr := res.Body.Close(); bodyCloseErr != nil {
+		logger.ConsumerLog.Errorf("%s response body cannot close: %+v", operation, bodyCloseErr)
+	}
+}
+
+func getNfProfile(ausfContext *ausfContext.AUSFContext, plmnConfig []models.PlmnId) (profile models.NFProfile, err error) {
 	if ausfContext == nil {
-		return profile, fmt.Errorf("ausf context has not been intialized. NF profile cannot be built")
+		return profile, openapi.ReportError("ausf context has not been initialized. NF profile cannot be built")
 	}
 	profile.NfInstanceId = ausfContext.NfId
-	profile.NfType = models.NfType_AUSF
-	profile.NfStatus = models.NfStatus_REGISTERED
+	profile.NfType = models.NFTYPE_AUSF
+	profile.NfStatus = models.NFSTATUS_REGISTERED
 	profile.Ipv4Addresses = append(profile.Ipv4Addresses, ausfContext.RegisterIPv4)
-	services := []models.NfService{}
+	services := []models.NFService{}
 	for _, nfService := range ausfContext.NfService {
 		services = append(services, nfService)
 	}
 	if len(services) > 0 {
-		profile.NfServices = &services
+		profile.NfServices = services
 	}
-	var ausfInfo models.AusfInfo
-	ausfInfo.GroupId = ausfContext.GroupID
-	profile.AusfInfo = &ausfInfo
-
-	plmnCopy := make([]models.PlmnId, len(plmnConfig))
-	copy(plmnCopy, plmnConfig)
-	profile.PlmnList = &plmnCopy
+	ausfInfo := models.NewAusfInfo()
+	ausfInfo.SetGroupId(ausfContext.GroupID)
+	profile.SetAusfInfo(*ausfInfo)
+	profile.SetPlmnList(plmnConfig)
 	return
 }
 
-var SendRegisterNFInstance = func(plmnConfig []models.PlmnId) (prof models.NfProfile, resourceNrfUri string, err error) {
+var SendRegisterNFInstance = func(plmnConfig []models.PlmnId) (prof *models.NFProfile, resourceNrfUri string, err error) {
 	self := ausfContext.GetSelf()
 	nfProfile, err := getNfProfile(self, plmnConfig)
 	if err != nil {
-		return models.NfProfile{}, "", err
+		return &models.NFProfile{}, "", err
 	}
 
 	configuration := Nnrf_NFManagement.NewConfiguration()
-	configuration.SetBasePath(self.NrfUri)
+	serverConfig := &configuration.Servers[0]
+	if apiRootVar, exists := serverConfig.Variables["apiRoot"]; exists {
+		apiRootVar.DefaultValue = self.NrfUri
+		serverConfig.Variables["apiRoot"] = apiRootVar
+	}
 	client := Nnrf_NFManagement.NewAPIClient(configuration)
-	receivedNfProfile, res, err := client.NFInstanceIDDocumentApi.RegisterNFInstance(context.TODO(), nfProfile.NfInstanceId, nfProfile)
-	logger.ConsumerLog.Debugf("RegisterNFInstance done using profile: %+v", nfProfile)
+	apiRegisterNFInstanceRequest := client.NFInstanceIDDocumentAPI.RegisterNFInstance(context.TODO(), nfProfile.NfInstanceId)
+	apiRegisterNFInstanceRequest = apiRegisterNFInstanceRequest.NFProfile(nfProfile)
+	receivedNfProfile, res, err := client.NFInstanceIDDocumentAPI.RegisterNFInstanceExecute(apiRegisterNFInstanceRequest)
+	defer closeNFManagementResponseBody(res, "RegisterNFInstance")
+	logger.ConsumerLog.Debugf("registering NF Instance using profile: %+v", nfProfile)
 
 	if err != nil {
-		return models.NfProfile{}, "", err
+		return &models.NFProfile{}, "", err
 	}
 	if res == nil {
-		return models.NfProfile{}, "", fmt.Errorf("no response from server")
+		return &models.NFProfile{}, "", openapi.ReportError("no response from server")
 	}
 
 	switch res.StatusCode {
@@ -75,7 +87,7 @@ var SendRegisterNFInstance = func(plmnConfig []models.PlmnId) (prof models.NfPro
 		logger.ConsumerLog.Debugln("AUSF NF profile registered to the NRF")
 		return receivedNfProfile, resourceNrfUri, nil
 	default:
-		return receivedNfProfile, "", fmt.Errorf("unexpected status code returned by the NRF %d", res.StatusCode)
+		return receivedNfProfile, "", openapi.ReportError("unexpected status code returned by the NRF %d", res.StatusCode)
 	}
 }
 
@@ -85,80 +97,105 @@ var SendDeregisterNFInstance = func() error {
 	ausfSelf := ausfContext.GetSelf()
 	// Set client and set url
 	configuration := Nnrf_NFManagement.NewConfiguration()
-	configuration.SetBasePath(ausfSelf.NrfUri)
+	serverConfig := &configuration.Servers[0]
+	if apiRootVar, exists := serverConfig.Variables["apiRoot"]; exists {
+		apiRootVar.DefaultValue = ausfSelf.NrfUri
+		serverConfig.Variables["apiRoot"] = apiRootVar
+	}
 	client := Nnrf_NFManagement.NewAPIClient(configuration)
-
-	res, err := client.NFInstanceIDDocumentApi.DeregisterNFInstance(context.Background(), ausfSelf.NfId)
+	apiDeregisterNFInstanceRequest := client.NFInstanceIDDocumentAPI.DeregisterNFInstance(context.Background(), ausfSelf.NfId)
+	res, err := client.NFInstanceIDDocumentAPI.DeregisterNFInstanceExecute(apiDeregisterNFInstanceRequest)
+	defer closeNFManagementResponseBody(res, "DeregisterNFInstance")
 	if err != nil {
 		return err
 	}
 	if res == nil {
-		return fmt.Errorf("no response from server")
+		return openapi.ReportError("no response from server")
 	}
 	if res.StatusCode == http.StatusNoContent {
 		return nil
 	}
-	return fmt.Errorf("unexpected response code")
+	return openapi.ReportError("unexpected response code")
 }
 
-var SendUpdateNFInstance = func(patchItem []models.PatchItem) (receivedNfProfile models.NfProfile, problemDetails *models.ProblemDetails, err error) {
+var SendUpdateNFInstance = func(patchItem []models.PatchItem) (receivedNfProfile *models.NFProfile, problemDetails *models.ProblemDetails, err error) {
 	logger.ConsumerLog.Debugln("send Update NFInstance")
 
 	ausfSelf := ausfContext.GetSelf()
 	configuration := Nnrf_NFManagement.NewConfiguration()
-	configuration.SetBasePath(ausfSelf.NrfUri)
+	serverConfig := &configuration.Servers[0]
+	if apiRootVar, exists := serverConfig.Variables["apiRoot"]; exists {
+		apiRootVar.DefaultValue = ausfSelf.NrfUri
+		serverConfig.Variables["apiRoot"] = apiRootVar
+	}
 	client := Nnrf_NFManagement.NewAPIClient(configuration)
 
 	var res *http.Response
-	receivedNfProfile, res, err = client.NFInstanceIDDocumentApi.UpdateNFInstance(context.Background(), ausfSelf.NfId, patchItem)
+	apiUpdateNFInstanceRequest := client.NFInstanceIDDocumentAPI.UpdateNFInstance(context.Background(), ausfSelf.NfId)
+	apiUpdateNFInstanceRequest = apiUpdateNFInstanceRequest.PatchItem(patchItem)
+	receivedNfProfile, res, err = client.NFInstanceIDDocumentAPI.UpdateNFInstanceExecute(apiUpdateNFInstanceRequest)
+	defer closeNFManagementResponseBody(res, "UpdateNFInstance")
 	if err != nil {
 		if openapiErr, ok := err.(openapi.GenericOpenAPIError); ok {
 			if model := openapiErr.Model(); model != nil {
 				if problem, ok := model.(models.ProblemDetails); ok {
-					return models.NfProfile{}, &problem, nil
+					return &models.NFProfile{}, &problem, nil
 				}
 			}
 		}
-		return models.NfProfile{}, nil, err
+		return &models.NFProfile{}, nil, err
 	}
 
 	if res == nil {
-		return models.NfProfile{}, nil, fmt.Errorf("no response from server")
+		return &models.NFProfile{}, nil, openapi.ReportError("no response from server")
 	}
 	if res.StatusCode == http.StatusOK || res.StatusCode == http.StatusNoContent {
 		return receivedNfProfile, nil, nil
 	}
-	return models.NfProfile{}, nil, fmt.Errorf("unexpected response code")
+	return &models.NFProfile{}, nil, openapi.ReportError("unexpected response code")
 }
 
-var SendCreateSubscription = func(nrfUri string, nrfSubscriptionData models.NrfSubscriptionData) (nrfSubData models.NrfSubscriptionData, problemDetails *models.ProblemDetails, err error) {
+var SendCreateSubscription = func(nrfUri string, nrfSubscriptionData models.SubscriptionData) (nrfSubData *models.SubscriptionData, problemDetails *models.ProblemDetails, err error) {
 	logger.ConsumerLog.Debugln("send Create Subscription")
 
 	// Set client and set url
 	configuration := Nnrf_NFManagement.NewConfiguration()
-	configuration.SetBasePath(nrfUri)
+	serverConfig := &configuration.Servers[0]
+	if apiRootVar, exists := serverConfig.Variables["apiRoot"]; exists {
+		apiRootVar.DefaultValue = nrfUri
+		serverConfig.Variables["apiRoot"] = apiRootVar
+	}
 	client := Nnrf_NFManagement.NewAPIClient(configuration)
 
 	var res *http.Response
-	nrfSubData, res, err = client.SubscriptionsCollectionApi.CreateSubscription(context.TODO(), nrfSubscriptionData)
+	apiCreateSubscriptionRequest := client.SubscriptionsCollectionAPI.CreateSubscription(context.TODO())
+	apiCreateSubscriptionRequest = apiCreateSubscriptionRequest.SubscriptionData(nrfSubscriptionData)
+	nrfSubData, res, err = client.SubscriptionsCollectionAPI.CreateSubscriptionExecute(apiCreateSubscriptionRequest)
+	defer closeNFManagementResponseBody(res, "CreateSubscription")
+
 	if err == nil {
-		return
-	} else if res != nil {
-		defer func() {
-			if resCloseErr := res.Body.Close(); resCloseErr != nil {
-				logger.ConsumerLog.Errorf("SendCreateSubscription response cannot close: %+v", resCloseErr)
-			}
-		}()
+		return nrfSubData, nil, nil
+	}
+
+	if res != nil {
 		if res.Status != err.Error() {
 			logger.ConsumerLog.Errorf("SendCreateSubscription received error response: %v", res.Status)
-			return
+			return nil, nil, err
 		}
-		problem := err.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
-		problemDetails = &problem
-	} else {
-		err = fmt.Errorf("server no response")
+
+		if genericErr, ok := err.(openapi.GenericOpenAPIError); ok {
+			if model := genericErr.Model(); model != nil {
+				if problem, ok := model.(models.ProblemDetails); ok {
+					return nil, &problem, err
+				}
+			}
+		}
+		return nil, nil, err
 	}
-	return
+
+	// Server no response case
+	err = openapi.ReportError("server no response")
+	return nil, nil, err
 }
 
 var SendRemoveSubscription = func(subscriptionId string) (problemDetails *models.ProblemDetails, err error) {
@@ -167,26 +204,39 @@ var SendRemoveSubscription = func(subscriptionId string) (problemDetails *models
 	ausfSelf := ausfContext.GetSelf()
 	// Set client and set url
 	configuration := Nnrf_NFManagement.NewConfiguration()
-	configuration.SetBasePath(ausfSelf.NrfUri)
-	client := Nnrf_NFManagement.NewAPIClient(configuration)
-	var res *http.Response
-
-	res, err = client.SubscriptionIDDocumentApi.RemoveSubscription(context.Background(), subscriptionId)
-	if err == nil {
-		return
-	} else if res != nil {
-		defer func() {
-			if bodyCloseErr := res.Body.Close(); bodyCloseErr != nil {
-				err = fmt.Errorf("RemoveSubscription's response body cannot close: %w", bodyCloseErr)
-			}
-		}()
-		if res.Status != err.Error() {
-			return
-		}
-		problem := err.(openapi.GenericOpenAPIError).Model().(models.ProblemDetails)
-		problemDetails = &problem
-	} else {
-		err = fmt.Errorf("server no response")
+	serverConfig := &configuration.Servers[0]
+	if apiRootVar, exists := serverConfig.Variables["apiRoot"]; exists {
+		apiRootVar.DefaultValue = ausfSelf.NrfUri
+		serverConfig.Variables["apiRoot"] = apiRootVar
 	}
-	return
+	client := Nnrf_NFManagement.NewAPIClient(configuration)
+
+	var res *http.Response
+	apiRemoveSubscriptionRequest := client.SubscriptionIDDocumentAPI.RemoveSubscription(context.Background(), subscriptionId)
+	res, err = client.SubscriptionIDDocumentAPI.RemoveSubscriptionExecute(apiRemoveSubscriptionRequest)
+	defer closeNFManagementResponseBody(res, "RemoveSubscription")
+
+	if err == nil {
+		return nil, nil
+	}
+
+	if res != nil {
+		if res.Status != err.Error() {
+			return nil, err
+		}
+
+		// Safe type assertion with error handling
+		if genericErr, ok := err.(openapi.GenericOpenAPIError); ok {
+			if model := genericErr.Model(); model != nil {
+				if problem, ok := model.(models.ProblemDetails); ok {
+					return &problem, err
+				}
+			}
+		}
+		return nil, err
+	}
+
+	// Server no response case
+	err = openapi.ReportError("server no response")
+	return nil, err
 }

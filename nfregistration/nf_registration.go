@@ -15,7 +15,7 @@ import (
 
 	"github.com/omec-project/ausf/consumer"
 	"github.com/omec-project/ausf/logger"
-	"github.com/omec-project/openapi/models"
+	"github.com/omec-project/openapi/v2/models"
 )
 
 var (
@@ -43,9 +43,22 @@ func StartNfRegistrationService(ctx context.Context, plmnConfigChan <-chan []mod
 			if registerCancel != nil {
 				registerCancel()
 			}
+			keepAliveTimerMutex.Lock()
+			stopKeepAliveTimer()
+			keepAliveTimerMutex.Unlock()
 			logger.NrfRegistrationLog.Infoln("NF registration service shutting down")
 			return
-		case newPlmnConfig := <-plmnConfigChan:
+		case newPlmnConfig, ok := <-plmnConfigChan:
+			if !ok {
+				if registerCancel != nil {
+					registerCancel()
+				}
+				keepAliveTimerMutex.Lock()
+				stopKeepAliveTimer()
+				keepAliveTimerMutex.Unlock()
+				logger.NrfRegistrationLog.Infoln("PLMN config channel closed; stopping NF registration service")
+				return
+			}
 			// Cancel current sync if running
 			if registerCancel != nil {
 				logger.NrfRegistrationLog.Infoln("NF registration context cancelled")
@@ -55,12 +68,12 @@ func StartNfRegistrationService(ctx context.Context, plmnConfigChan <-chan []mod
 			if len(newPlmnConfig) == 0 {
 				logger.NrfRegistrationLog.Debugln("PLMN config is empty. AUSF will deregister")
 				DeregisterNF()
-			} else {
-				logger.NrfRegistrationLog.Debugln("PLMN config is not empty. AUSF will update registration")
-				registerCtx, registerCancel = context.WithCancel(context.Background())
-				// Create new cancellable context for this registration
-				go registerNF(registerCtx, newPlmnConfig)
+				continue
 			}
+			logger.NrfRegistrationLog.Debugln("PLMN config is not empty. AUSF will update registration")
+			registerCtx, registerCancel = context.WithCancel(context.Background())
+			// Create new cancellable context for this registration
+			go registerNF(registerCtx, newPlmnConfig)
 		}
 	}
 }
@@ -83,7 +96,7 @@ var registerNF = func(registerCtx context.Context, newPlmnConfig []models.PlmnId
 				continue
 			}
 			logger.NrfRegistrationLog.Infoln("register AUSF instance to NRF with updated profile succeeded")
-			startKeepAliveTimer(nfProfile.HeartBeatTimer, newPlmnConfig)
+			startKeepAliveTimer(getProfileHeartbeatTimer(nfProfile), newPlmnConfig)
 			return
 		}
 	}
@@ -103,9 +116,9 @@ func heartbeatNF(plmnConfig []models.PlmnId) {
 
 	patchItem := []models.PatchItem{
 		{
-			Op:    "replace",
+			Op:    models.PATCHOPERATION_REPLACE,
 			Path:  "/nfStatus",
-			Value: "REGISTERED",
+			Value: models.NFSTATUS_REGISTERED,
 		},
 	}
 	nfProfile, problemDetails, err := consumer.SendUpdateNFInstance(patchItem)
@@ -121,7 +134,14 @@ func heartbeatNF(plmnConfig []models.PlmnId) {
 	} else {
 		logger.NrfRegistrationLog.Debugln("AUSF update NF instance (heartbeat) succeeded")
 	}
-	startKeepAliveTimer(nfProfile.HeartBeatTimer, plmnConfig)
+	startKeepAliveTimer(getProfileHeartbeatTimer(nfProfile), plmnConfig)
+}
+
+func getProfileHeartbeatTimer(nfProfile *models.NFProfile) int32 {
+	if nfProfile == nil {
+		return defaultHeartbeatTimer
+	}
+	return nfProfile.GetHeartBeatTimer()
 }
 
 func shouldRegister(problemDetails *models.ProblemDetails, err error) bool {
@@ -159,7 +179,7 @@ func startKeepAliveTimer(profileHeartbeatTimer int32, plmnConfig []models.PlmnId
 	heartbeatFunction := func() { heartbeatNF(plmnConfig) }
 	// AfterFunc starts timer and waits for keepAliveTimer to elapse and then calls heartbeatNF function
 	keepAliveTimer = afterFunc(time.Duration(heartbeatTimer)*time.Second, heartbeatFunction)
-	logger.NrfRegistrationLog.Debugf("started heartbeat timer: %v sec", heartbeatTimer)
+	logger.NrfRegistrationLog.Debugf("started heartbeat timer: %d sec", heartbeatTimer)
 }
 
 func stopKeepAliveTimer() {

@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/omec-project/ausf/logger"
-	"github.com/omec-project/openapi/models"
+	"github.com/omec-project/openapi/v2/models"
 )
 
 type AUSFContext struct {
@@ -30,7 +30,8 @@ type AUSFContext struct {
 	UriScheme                models.UriScheme
 	Key                      string
 	PEM                      string
-	NfService                map[models.ServiceName]models.NfService
+	NfService                map[models.ServiceName]models.NFService
+	PlmnList                 []models.PlmnId
 	SBIPort                  int
 	EnableNrfCaching         bool
 	NrfCacheEvictionInterval time.Duration
@@ -95,6 +96,10 @@ func AddAusfUeContextToPool(ausfUeContext *AusfUeContext) {
 	ausfContext.UePool.Store(ausfUeContext.Supi, ausfUeContext)
 }
 
+func RemoveAusfUeContextFromPool(supi string) {
+	ausfContext.UePool.Delete(supi)
+}
+
 func CheckIfAusfUeContextExists(ref string) bool {
 	_, ok := ausfContext.UePool.Load(ref)
 	return ok
@@ -115,6 +120,29 @@ func AddSuciSupiPairToMap(supiOrSuci string, supi string) {
 	newPair.SupiOrSuci = supiOrSuci
 	newPair.Supi = supi
 	ausfContext.suciSupiMap.Store(supiOrSuci, newPair)
+}
+
+func RemoveSuciSupiPairFromMap(supiOrSuci string) {
+	ausfContext.suciSupiMap.Delete(supiOrSuci)
+}
+
+func ListSuciSupiPairsForSupi(supi string) []string {
+	keys := make([]string, 0)
+	ausfContext.suciSupiMap.Range(func(key, value any) bool {
+		pair, ok := value.(*SuciSupiMap)
+		if !ok || pair == nil || pair.Supi != supi {
+			return true
+		}
+		if supiOrSuci, ok := key.(string); ok {
+			keys = append(keys, supiOrSuci)
+		}
+		return true
+	})
+	return keys
+}
+
+func HasSuciSupiPairForSupi(supi string) bool {
+	return len(ListSuciSupiPairsForSupi(supi)) > 0
 }
 
 func CheckIfSuciSupiPairExists(ref string) bool {
