@@ -17,6 +17,7 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -56,9 +57,9 @@ func TestStartPollingService_RetryAfterFailure(t *testing.T) {
 		fetchPlmnConfig = originalFetchPlmnConfig
 	}()
 
-	callCount := 0
+	var callCount atomic.Int32
 	fetchPlmnConfig = func(poller *nfConfigPoller, pollingEndpoint string) ([]models.PlmnId, error) {
-		callCount++
+		callCount.Add(1)
 		return nil, errors.New("mock failure")
 	}
 	plmnChan := make(chan []models.PlmnId, 1)
@@ -68,10 +69,10 @@ func TestStartPollingService_RetryAfterFailure(t *testing.T) {
 	cancel()
 	<-ctx.Done()
 
-	if callCount < 2 {
+	if callCount.Load() < 2 {
 		t.Error("Expected to retry after failure")
 	}
-	t.Logf("Tried %v times", callCount)
+	t.Logf("Tried %v times", callCount.Load())
 }
 
 func TestHandlePolledPlmnConfig_ConfigChanged_ConfigurationIsUpdatedAndSendToChannel(t *testing.T) {
