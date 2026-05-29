@@ -24,20 +24,32 @@ import (
 	"github.com/omec-project/openapi/v2/models"
 )
 
-func TestStartPollingService_Success(t *testing.T) {
-	ctx := t.Context()
-	originalFetchPlmnConfig := fetchPlmnConfig
-	defer func() {
-		fetchPlmnConfig = originalFetchPlmnConfig
+func startPollingServiceForTest(t *testing.T, ch chan<- []models.PlmnId) (context.CancelFunc, <-chan struct{}) {
+	t.Helper()
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		StartPollingService(ctx, "http://dummy", ch)
 	}()
+	return cancel, done
+}
+
+func TestStartPollingService_Success(t *testing.T) {
+	originalFetchPlmnConfig := fetchPlmnConfig
 
 	expectedConfig := []models.PlmnId{{Mcc: "001", Mnc: "01"}}
 	fetchPlmnConfig = func(poller *nfConfigPoller, pollingEndpoint string) ([]models.PlmnId, error) {
 		return expectedConfig, nil
 	}
 	pollingChan := make(chan []models.PlmnId, 1)
+	cancel, done := startPollingServiceForTest(t, pollingChan)
+	defer func() {
+		cancel()
+		<-done
+		fetchPlmnConfig = originalFetchPlmnConfig
+	}()
 
-	go StartPollingService(ctx, "http://dummy", pollingChan)
 	time.Sleep(initialPollingInterval)
 
 	select {
@@ -51,11 +63,7 @@ func TestStartPollingService_Success(t *testing.T) {
 }
 
 func TestStartPollingService_RetryAfterFailure(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
 	originalFetchPlmnConfig := fetchPlmnConfig
-	defer func() {
-		fetchPlmnConfig = originalFetchPlmnConfig
-	}()
 
 	var callCount atomic.Int32
 	fetchPlmnConfig = func(poller *nfConfigPoller, pollingEndpoint string) ([]models.PlmnId, error) {
@@ -63,11 +71,14 @@ func TestStartPollingService_RetryAfterFailure(t *testing.T) {
 		return nil, errors.New("mock failure")
 	}
 	plmnChan := make(chan []models.PlmnId, 1)
-	go StartPollingService(ctx, "http://dummy", plmnChan)
+	cancel, done := startPollingServiceForTest(t, plmnChan)
+	defer func() {
+		fetchPlmnConfig = originalFetchPlmnConfig
+	}()
 
 	time.Sleep(4 * initialPollingInterval)
 	cancel()
-	<-ctx.Done()
+	<-done
 
 	if callCount.Load() < 2 {
 		t.Error("Expected to retry after failure")
