@@ -27,13 +27,12 @@ import (
 	"github.com/omec-project/ausf/nfregistration"
 	"github.com/omec-project/ausf/polling"
 	"github.com/omec-project/ausf/ueauthentication"
+	openapiLogger "github.com/omec-project/openapi/logger"
 	"github.com/omec-project/openapi/v2/models"
 	nrfCache "github.com/omec-project/openapi/v2/nrfcache"
 	"github.com/omec-project/util/http2_util"
 	utilLogger "github.com/omec-project/util/logger"
 	"github.com/urfave/cli/v3"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 type AUSF struct{}
@@ -86,26 +85,14 @@ func (ausf *AUSF) Initialize(c *cli.Command) error {
 }
 
 func (ausf *AUSF) setLogLevel() {
-	if factory.AusfConfig.Logger == nil {
+	cfgLogger := factory.AusfConfig.Logger
+	if cfgLogger == nil {
 		logger.InitLog.Warnln("AUSF config without log level setting")
 		return
 	}
 
-	if factory.AusfConfig.Logger.AUSF != nil {
-		if factory.AusfConfig.Logger.AUSF.DebugLevel != "" {
-			if level, err := zapcore.ParseLevel(factory.AusfConfig.Logger.AUSF.DebugLevel); err != nil {
-				logger.InitLog.Warnf("AUSF Log level [%s] is invalid, set to [info] level",
-					factory.AusfConfig.Logger.AUSF.DebugLevel)
-				logger.SetLogLevel(zap.InfoLevel)
-			} else {
-				logger.InitLog.Infof("AUSF Log level is set to [%s] level", level)
-				logger.SetLogLevel(level)
-			}
-		} else {
-			logger.InitLog.Warnln("AUSF Log level not set. Default set to [info] level")
-			logger.SetLogLevel(zap.InfoLevel)
-		}
-	}
+	utilLogger.ApplyLogSetting("AUSF", cfgLogger.AUSF, logger.InitLog, logger.SetLogLevel)
+	utilLogger.ApplyLogSetting("OpenApi", cfgLogger.OpenApi, openapiLogger.OpenapiLog, openapiLogger.SetLogLevel)
 }
 
 func (ausf *AUSF) Start() {
