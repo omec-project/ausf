@@ -27,7 +27,7 @@ import (
 	"github.com/omec-project/ausf/nfregistration"
 	"github.com/omec-project/ausf/polling"
 	"github.com/omec-project/ausf/ueauthentication"
-	openapiLogger "github.com/omec-project/openapi/logger"
+	openapiLogger "github.com/omec-project/openapi/v2/logger"
 	"github.com/omec-project/openapi/v2/models"
 	nrfCache "github.com/omec-project/openapi/v2/nrfcache"
 	"github.com/omec-project/util/http2_util"
