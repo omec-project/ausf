@@ -166,7 +166,7 @@ func DeleteAuthenticationResultProcedure(authCtxID string, authType models.AuthT
 	ausfCurrentContext := ausf_context.GetAusfUeContext(currentSupi)
 	if err := deleteAuthResultFromUDM(currentSupi, authCtxID, authType, ausfCurrentContext.ServingNetworkName,
 		ausfCurrentContext.UdmUeauUrl); err != nil {
-		return utils.ProblemDetailsWithCause("Upstream server error", http.StatusInternalServerError, err.Error(), UPSTREAM_SERVER_ERROR)
+		return utils.ProblemDetailsWithCause("Upstream server error", http.StatusInternalServerError, "", UPSTREAM_SERVER_ERROR)
 	}
 
 	deleteAuthContextLocally(authCtxID, currentSupi)
@@ -201,7 +201,7 @@ func DeregisterAuthContextProcedure(deregistrationInfo models.DeregistrationInfo
 
 	for _, authCtxID := range authCtxIDs {
 		if err := deleteAuthResultFromUDM(supi, authCtxID, authType, servingNetworkName, udmURL); err != nil {
-			return utils.ProblemDetailsWithCause("Upstream server error", http.StatusInternalServerError, err.Error(), UPSTREAM_SERVER_ERROR)
+			return utils.ProblemDetailsWithCause("Upstream server error", http.StatusInternalServerError, "", UPSTREAM_SERVER_ERROR)
 		}
 	}
 
@@ -469,7 +469,7 @@ func Auth5gAkaComfirmRequestProcedure(updateConfirmationData models.Confirmation
 	if sendErr := sendAuthResultToUDM(currentSupi, models.AUTHTYPE__5_G_AKA, success, servingNetworkName,
 		ausfCurrentContext.UdmUeauUrl); sendErr != nil {
 		logger.Auth5gAkaComfirmLog.Infoln(sendErr.Error())
-		return nil, utils.ProblemDetailsWithCause("Upstream server error", http.StatusInternalServerError, sendErr.Error(), UPSTREAM_SERVER_ERROR)
+		return nil, utils.ProblemDetailsWithCause("Upstream server error", http.StatusInternalServerError, "", UPSTREAM_SERVER_ERROR)
 	}
 
 	responseBody.SetSupi(currentSupi)
@@ -540,7 +540,7 @@ func EapAuthComfirmRequestProcedure(updateEapSession models.EapSession, eapSessi
 			if sendErr := sendAuthResultToUDM(eapSessionID, models.AUTHTYPE_EAP_AKA_PRIME, true, servingNetworkName,
 				udmUrl); sendErr != nil {
 				logger.EapAuthComfirmLog.Infoln(sendErr.Error())
-				return nil, utils.ProblemDetailsWithCause("Upstream server error", http.StatusInternalServerError, sendErr.Error(), UPSTREAM_SERVER_ERROR)
+				return nil, utils.ProblemDetailsWithCause("Upstream server error", http.StatusInternalServerError, "", UPSTREAM_SERVER_ERROR)
 			}
 			ausfCurrentContext.AuthStatus = models.AUTHRESULT_AUTHENTICATION_SUCCESS
 		} else {
