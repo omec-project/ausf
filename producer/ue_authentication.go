@@ -294,7 +294,7 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 		ausfDecode, err := hex.DecodeString(Kausf)
 		if err != nil {
 			logger.Auth5gAkaComfirmLog.Warnf("AUSF decode failed: %+v", err)
-			return nil, "", utils.ProblemDetailsSystemFailure("Failed to decode Kausf")
+			return nil, "", utils.ProblemDetailsWithCause("AV generation problem", http.StatusInternalServerError, "Failed to decode Kausf", AV_GENERATION_PROBLEM_ERROR)
 		}
 		P0 := []byte(snName)
 		Kseaf, err := ueauth.GetKDFValue(ausfDecode, ueauth.FC_FOR_KSEAF_DERIVATION, P0, ueauth.KDFLen(P0))
@@ -407,7 +407,8 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 		}
 		responseBody.SetVar5gAuthData(uEAuthenticationCtx5gAuthData)
 	default:
-		return nil, "", utils.ProblemDetailsSystemFailure(fmt.Sprintf("unsupported auth type: %s", authInfoResult.AuthType))
+		logger.UeAuthPostLog.Warnf("unsupported auth type: %s", authInfoResult.AuthType)
+		return nil, "", utils.ProblemDetailsWithCause("Upstream server error", http.StatusInternalServerError, fmt.Sprintf("unsupported auth type: %s", authInfoResult.AuthType), UPSTREAM_SERVER_ERROR)
 	}
 
 	ausf_context.AddAusfUeContextToPool(ausfUeContext)
