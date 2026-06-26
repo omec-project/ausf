@@ -35,19 +35,20 @@ func HandleNfSubscriptionStatusNotify(request *httpwrapper.Request) *httpwrapper
 func NfSubscriptionStatusNotifyProcedure(notificationData models.NotificationData) *models.ProblemDetails {
 	logger.ProducerLog.Debugf("NfSubscriptionStatusNotify: %+v", notificationData)
 
-	if notificationData.Event == "" || notificationData.NfInstanceUri == "" {
+	if notificationData.GetEvent() == "" || notificationData.GetNfInstanceUri() == "" {
 		problemDetails := models.NewProblemDetails()
 		problemDetails.SetStatus(http.StatusBadRequest)
 		problemDetails.SetCause("MANDATORY_IE_MISSING") // Defined in TS 29.510 6.1.6.2.17
 		problemDetails.SetDetail("Missing IE [Event]/[NfInstanceUri] in NotificationData")
 		return problemDetails
 	}
-	nfInstanceId := notificationData.NfInstanceUri[strings.LastIndex(notificationData.NfInstanceUri, "/")+1:]
+	nfInstanceURI := notificationData.GetNfInstanceUri()
+	nfInstanceId := nfInstanceURI[strings.LastIndex(nfInstanceURI, "/")+1:]
 
-	logger.ProducerLog.Infof("Received Subscription Status Notification from NRF: %v", notificationData.Event)
+	logger.ProducerLog.Infof("Received Subscription Status Notification from NRF: %v", notificationData.GetEvent())
 	// If nrf caching is enabled, go ahead and delete the entry from the cache.
 	// This will force the AUSF to do nf discovery and get the updated nf profile from the NRF.
-	if notificationData.Event == models.NOTIFICATIONEVENTTYPE_NF_DEREGISTERED {
+	if notificationData.GetEvent() == models.NOTIFICATIONEVENTTYPE_NF_DEREGISTERED {
 		if ausfContext.GetSelf().EnableNrfCaching {
 			ok := NRFCacheRemoveNfProfileFromNrfCache(nfInstanceId)
 			logger.ProducerLog.Debugf("nfinstance %v deleted from cache: %v", nfInstanceId, ok)

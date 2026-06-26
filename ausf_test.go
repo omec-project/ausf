@@ -52,76 +52,38 @@ func TestGetUDMUri(t *testing.T) {
 	origSendNfDiscoveryToNrf := consumer.SendNfDiscoveryToNrf
 	udmUri1 := "https://10.0.13.1:8090"
 	udmUri2 := "https://20.20.13.1:8090"
-	udmProfile1 := models.NFProfileDiscovery{
-		UdmInfo: &models.UdmInfo{
-			RoutingIndicators: []string{},
-		},
-		NfInstanceId:  nfInstanceID,
-		Ipv4Addresses: []string{udmUri1},
-		NfType:        "UDM",
-		NfStatus:      "REGISTERED",
-	}
-	services1 := []models.NFService{
-		{
-			ServiceInstanceId: "datarepository",
-			ServiceName:       models.SERVICENAME_NUDM_UEAU,
-			Versions: []models.NFServiceVersion{
-				{
-					ApiFullVersion:  "1",
-					ApiVersionInUri: "versionUri",
-				},
-			},
-			Scheme:          "https",
-			NfServiceStatus: models.NFSERVICESTATUS_REGISTERED,
-			ApiPrefix:       openapi.PtrString(udmUri1),
-			IpEndPoints: []models.IpEndPoint{
-				{
-					Ipv4Address: openapi.PtrString("10.0.13.1"),
-					Transport:   models.TRANSPORTPROTOCOL_TCP.Ptr(),
-					Port:        openapi.PtrInt32(8090),
-				},
-			},
-		},
-	}
-	udmProfile1.NfServices = services1
+	udmInfo1 := models.NewUdmInfo()
+	udmProfile1 := models.NewNFProfileDiscovery(nfInstanceID, models.NFTYPE_UDM, models.NFSTATUS_REGISTERED)
+	udmProfile1.SetUdmInfo(*udmInfo1)
+	udmProfile1.SetIpv4Addresses([]string{udmUri1})
+	version1 := models.NewNFServiceVersion("versionUri", "1")
+	ipEndPoint1 := models.NewIpEndPoint()
+	ipEndPoint1.SetIpv4Address("10.0.13.1")
+	ipEndPoint1.SetTransport(models.TRANSPORTPROTOCOL_TCP)
+	ipEndPoint1.SetPort(8090)
+	service1 := models.NewNFService("datarepository", models.SERVICENAME_NUDM_UEAU, []models.NFServiceVersion{*version1}, models.URISCHEME_HTTPS, models.NFSERVICESTATUS_REGISTERED)
+	service1.SetApiPrefix(udmUri1)
+	service1.SetIpEndPoints([]models.IpEndPoint{*ipEndPoint1})
+	udmProfile1.SetNfServices([]models.NFService{*service1})
 	nfInstances1 := []models.NFProfileDiscovery{
-		udmProfile1,
+		*udmProfile1,
 	}
 	searchResult1 := models.NewSearchResult(7, nfInstances1)
-	udmProfile2 := models.NFProfileDiscovery{
-		UdmInfo: &models.UdmInfo{
-			RoutingIndicators: []string{},
-		},
-		NfInstanceId:  "9999-4343-43-434-343",
-		Ipv4Addresses: []string{udmUri2},
-		NfType:        "UDM",
-		NfStatus:      "REGISTERED",
-	}
-	services2 := []models.NFService{
-		{
-			ServiceInstanceId: "datarepository",
-			ServiceName:       models.SERVICENAME_NUDM_UEAU,
-			Versions: []models.NFServiceVersion{
-				{
-					ApiFullVersion:  "1",
-					ApiVersionInUri: "versionUri",
-				},
-			},
-			Scheme:          "https",
-			NfServiceStatus: models.NFSERVICESTATUS_REGISTERED,
-			ApiPrefix:       openapi.PtrString(udmUri2),
-			IpEndPoints: []models.IpEndPoint{
-				{
-					Ipv4Address: openapi.PtrString("20.20.13.1"),
-					Transport:   models.TRANSPORTPROTOCOL_TCP.Ptr(),
-					Port:        openapi.PtrInt32(8090),
-				},
-			},
-		},
-	}
-	udmProfile2.NfServices = services2
+	udmInfo2 := models.NewUdmInfo()
+	udmProfile2 := models.NewNFProfileDiscovery("9999-4343-43-434-343", models.NFTYPE_UDM, models.NFSTATUS_REGISTERED)
+	udmProfile2.SetUdmInfo(*udmInfo2)
+	udmProfile2.SetIpv4Addresses([]string{udmUri2})
+	version2 := models.NewNFServiceVersion("versionUri", "1")
+	ipEndPoint2 := models.NewIpEndPoint()
+	ipEndPoint2.SetIpv4Address("20.20.13.1")
+	ipEndPoint2.SetTransport(models.TRANSPORTPROTOCOL_TCP)
+	ipEndPoint2.SetPort(8090)
+	service2 := models.NewNFService("datarepository", models.SERVICENAME_NUDM_UEAU, []models.NFServiceVersion{*version2}, models.URISCHEME_HTTPS, models.NFSERVICESTATUS_REGISTERED)
+	service2.SetApiPrefix(udmUri2)
+	service2.SetIpEndPoints([]models.IpEndPoint{*ipEndPoint2})
+	udmProfile2.SetNfServices([]models.NFService{*service2})
 	nfInstances2 := []models.NFProfileDiscovery{
-		udmProfile2,
+		*udmProfile2,
 	}
 	searchResult2 := models.NewSearchResult(7, nfInstances2)
 	defer func() {

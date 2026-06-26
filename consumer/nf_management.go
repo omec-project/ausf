@@ -30,16 +30,16 @@ func getNfProfile(ausfContext *ausfContext.AUSFContext, plmnConfig []models.Plmn
 	if ausfContext == nil {
 		return profile, openapi.ReportError("ausf context has not been initialized. NF profile cannot be built")
 	}
-	profile.NfInstanceId = ausfContext.NfId
-	profile.NfType = models.NFTYPE_AUSF
-	profile.NfStatus = models.NFSTATUS_REGISTERED
-	profile.Ipv4Addresses = append(profile.Ipv4Addresses, ausfContext.RegisterIPv4)
+	profile.SetNfInstanceId(ausfContext.NfId)
+	profile.SetNfType(models.NFTYPE_AUSF)
+	profile.SetNfStatus(models.NFSTATUS_REGISTERED)
+	profile.SetIpv4Addresses([]string{ausfContext.RegisterIPv4})
 	services := []models.NFService{}
 	for _, nfService := range ausfContext.NfService {
 		services = append(services, nfService)
 	}
 	if len(services) > 0 {
-		profile.NfServices = services
+		profile.SetNfServices(services)
 	}
 	ausfInfo := models.NewAusfInfo()
 	ausfInfo.SetGroupId(ausfContext.GroupID)
@@ -62,7 +62,7 @@ var SendRegisterNFInstance = func(plmnConfig []models.PlmnId) (prof *models.NFPr
 		serverConfig.Variables["apiRoot"] = apiRootVar
 	}
 	client := Nnrf_NFManagement.NewAPIClient(configuration)
-	apiRegisterNFInstanceRequest := client.NFInstanceIDDocumentAPI.RegisterNFInstance(context.TODO(), nfProfile.NfInstanceId)
+	apiRegisterNFInstanceRequest := client.NFInstanceIDDocumentAPI.RegisterNFInstance(context.TODO(), nfProfile.GetNfInstanceId())
 	apiRegisterNFInstanceRequest = apiRegisterNFInstanceRequest.NFProfile(nfProfile)
 	receivedNfProfile, res, err := client.NFInstanceIDDocumentAPI.RegisterNFInstanceExecute(apiRegisterNFInstanceRequest)
 	defer closeNFManagementResponseBody(res, "RegisterNFInstance")
