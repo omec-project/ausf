@@ -27,6 +27,7 @@ import (
 	"github.com/omec-project/openapi/v2"
 	"github.com/omec-project/openapi/v2/Nnrf_NFDiscovery"
 	"github.com/omec-project/openapi/v2/models"
+	"github.com/omec-project/openapi/v2/utils"
 )
 
 var (
@@ -351,11 +352,7 @@ func TestCreateSubscriptionFail(t *testing.T) {
 		ProtoMinor: 0,
 		Body:       stringReadCloser,
 	}
-	serverErrorProblemPtr := models.NewProblemDetails()
-	serverErrorProblemPtr.SetStatus(http.StatusInternalServerError)
-	serverErrorProblemPtr.SetCause("Server Error")
-	serverErrorProblemPtr.SetDetail("")
-	serverErrorProblem := *serverErrorProblemPtr
+	serverErrorProblem := *utils.ProblemDetailsSystemFailure("")
 	callCountSendCreateSubscription := 0
 	origStoreApiSearchNFInstances := consumer.StoreApiSearchNFInstances
 	origCreateSubscription := consumer.CreateSubscription
@@ -490,11 +487,7 @@ func TestNfSubscriptionStatusNotify(t *testing.T) {
 		NfType:       "UDM",
 		NfStatus:     "DEREGISTERED",
 	}
-	badRequestProblemPtr := models.NewProblemDetails()
-	badRequestProblemPtr.SetStatus(http.StatusBadRequest)
-	badRequestProblemPtr.SetCause("MANDATORY_IE_MISSING")
-	badRequestProblemPtr.SetDetail("Missing IE [Event]/[NfInstanceUri] in NotificationData")
-	badRequestProblem := *badRequestProblemPtr
+	badRequestProblem := *utils.ProblemDetailsMandatoryIeMissing("Missing IE [Event]/[NfInstanceUri] in NotificationData")
 	parameters := []struct {
 		expectedProblem                                      *models.ProblemDetails
 		testName                                             string
