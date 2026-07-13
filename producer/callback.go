@@ -14,6 +14,7 @@ import (
 	"github.com/omec-project/ausf/logger"
 	"github.com/omec-project/openapi/v2/models"
 	nrfCache "github.com/omec-project/openapi/v2/nrfcache"
+	"github.com/omec-project/openapi/v2/utils"
 	"github.com/omec-project/util/httpwrapper"
 )
 
@@ -36,11 +37,7 @@ func NfSubscriptionStatusNotifyProcedure(notificationData models.NotificationDat
 	logger.ProducerLog.Debugf("NfSubscriptionStatusNotify: %+v", notificationData)
 
 	if notificationData.GetEvent() == "" || notificationData.GetNfInstanceUri() == "" {
-		problemDetails := models.NewProblemDetails()
-		problemDetails.SetStatus(http.StatusBadRequest)
-		problemDetails.SetCause("MANDATORY_IE_MISSING") // Defined in TS 29.510 6.1.6.2.17
-		problemDetails.SetDetail("Missing IE [Event]/[NfInstanceUri] in NotificationData")
-		return problemDetails
+		return utils.ProblemDetailsMandatoryIeMissing("Missing IE [Event]/[NfInstanceUri] in NotificationData")
 	}
 	nfInstanceURI := notificationData.GetNfInstanceUri()
 	nfInstanceId := nfInstanceURI[strings.LastIndex(nfInstanceURI, "/")+1:]
