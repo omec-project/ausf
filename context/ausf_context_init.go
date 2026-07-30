@@ -31,37 +31,8 @@ func InitAusfContext(context *AUSFContext) {
 	context.RegisterIPv4 = factory.AUSF_DEFAULT_IPV4               // default localhost
 	context.SBIPort = factory.AUSF_DEFAULT_PORT_INT                // default port
 	if sbi != nil {
-		if sbi.RegisterIPv4 != "" {
-			context.RegisterIPv4 = sbi.RegisterIPv4
-		}
-		if sbi.Port != 0 {
-			context.SBIPort = sbi.Port
-		}
-
-		if sbi.Scheme == "https" {
-			context.UriScheme = models.URISCHEME_HTTPS
-		} else {
-			context.UriScheme = models.URISCHEME_HTTP
-		}
-		if tls := sbi.TLS; tls != nil {
-			if tls.Key != "" {
-				context.Key = tls.Key
-			}
-			if tls.PEM != "" {
-				context.PEM = tls.PEM
-			}
-		}
-
-		context.BindingIPv4 = os.Getenv(sbi.BindingIPv4)
-		if context.BindingIPv4 != "" {
-			logger.InitLog.Infoln("parsing ServerIPv4 address from ENV Variable")
-		} else {
-			context.BindingIPv4 = sbi.BindingIPv4
-			if context.BindingIPv4 == "" {
-				logger.InitLog.Warnln("error parsing ServerIPv4 address as string. Using the 0.0.0.0 address as default")
-				context.BindingIPv4 = "0.0.0.0"
-			}
-		}
+		configureSbiSettings(context, sbi)
+		configureBindingIPv4(context, sbi)
 	}
 
 	context.Url = string(context.UriScheme) + "://" + context.RegisterIPv4 + ":" + strconv.Itoa(context.SBIPort)
@@ -78,6 +49,42 @@ func InitAusfContext(context *AUSFContext) {
 	context.NfService = make(map[models.ServiceName]models.NFService)
 	AddNfServices(&context.NfService, &config, context)
 	logger.ContextLog.Infoln("ausf context:", context)
+}
+
+func configureSbiSettings(context *AUSFContext, sbi *factory.Sbi) {
+	if sbi.RegisterIPv4 != "" {
+		context.RegisterIPv4 = sbi.RegisterIPv4
+	}
+	if sbi.Port != 0 {
+		context.SBIPort = sbi.Port
+	}
+
+	if sbi.Scheme == "https" {
+		context.UriScheme = models.URISCHEME_HTTPS
+	} else {
+		context.UriScheme = models.URISCHEME_HTTP
+	}
+	if tls := sbi.TLS; tls != nil {
+		if tls.Key != "" {
+			context.Key = tls.Key
+		}
+		if tls.PEM != "" {
+			context.PEM = tls.PEM
+		}
+	}
+}
+
+func configureBindingIPv4(context *AUSFContext, sbi *factory.Sbi) {
+	context.BindingIPv4 = os.Getenv(sbi.BindingIPv4)
+	if context.BindingIPv4 != "" {
+		logger.InitLog.Infoln("parsing ServerIPv4 address from ENV Variable")
+	} else {
+		context.BindingIPv4 = sbi.BindingIPv4
+		if context.BindingIPv4 == "" {
+			logger.InitLog.Warnln("error parsing ServerIPv4 address as string. Using the 0.0.0.0 address as default")
+			context.BindingIPv4 = "0.0.0.0"
+		}
+	}
 }
 
 func AddNfServices(serviceMap *map[models.ServiceName]models.NFService, config *factory.Config, context *AUSFContext) {
