@@ -29,6 +29,12 @@ import (
 	utilLogger "github.com/omec-project/util/logger"
 )
 
+const (
+	getRequestBodyErr = "Get Request Body error: %+v"
+	applicationJSON   = "application/json"
+	requestBodyLog    = "[Request Body] "
+)
+
 // Route is the information for every URI.
 type Route struct {
 	// Name is the name of this Route.
