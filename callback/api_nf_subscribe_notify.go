@@ -19,8 +19,6 @@ import (
 	"github.com/omec-project/util/httpwrapper"
 )
 
-const applicationJSON = "application/json"
-
 func HTTPNfSubscriptionStatusNotify(c *gin.Context) {
 	var nfSubscriptionStatusNotification models.NotificationData
 
