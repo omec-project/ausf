@@ -40,13 +40,13 @@ func HTTPDelete5gAkaAuthenticationResult(c *gin.Context) {
 		c.Status(rsp.Status)
 		return
 	}
-	responseBody, err := openapi.SetBody(rsp.Body, "application/json")
+	responseBody, err := openapi.SetBody(rsp.Body, applicationJSON)
 	if err != nil {
 		logger.Auth5gAkaComfirmLog.Errorln(err)
 		problemDetails := utils.ProblemDetailsSystemFailure(err.Error())
 		c.JSON(http.StatusInternalServerError, problemDetails)
 	} else {
-		c.Data(rsp.Status, "application/json", responseBody.Bytes())
+		c.Data(rsp.Status, applicationJSON, responseBody.Bytes())
 	}
 }
 
@@ -61,13 +61,13 @@ func HTTPDeleteEapAuthenticationResult(c *gin.Context) {
 		c.Status(rsp.Status)
 		return
 	}
-	responseBody, err := openapi.SetBody(rsp.Body, "application/json")
+	responseBody, err := openapi.SetBody(rsp.Body, applicationJSON)
 	if err != nil {
 		logger.EapAuthComfirmLog.Errorln(err)
 		problemDetails := utils.ProblemDetailsSystemFailure(err.Error())
 		c.JSON(http.StatusInternalServerError, problemDetails)
 	} else {
-		c.Data(rsp.Status, "application/json", responseBody.Bytes())
+		c.Data(rsp.Status, applicationJSON, responseBody.Bytes())
 	}
 }
 

@@ -39,14 +39,14 @@ func HTTPEapAuthMethod(c *gin.Context) {
 	requestBody, err := c.GetRawData()
 	if err != nil {
 		problemDetail := utils.ProblemDetailsSystemFailure(err.Error())
-		logger.EapAuthComfirmLog.Errorf("Get Request Body error: %+v", err)
+		logger.EapAuthComfirmLog.Errorf(getRequestBodyErr, err)
 		c.JSON(http.StatusInternalServerError, problemDetail)
 		return
 	}
 
-	err = openapi.Decode(&eapSessionReq, requestBody, "application/json")
+	err = openapi.Decode(&eapSessionReq, requestBody, applicationJSON)
 	if err != nil {
-		problemDetail := "[Request Body] " + err.Error()
+		problemDetail := requestBodyLog + err.Error()
 		rsp := utils.ProblemDetailsMalformedRequestSyntax(problemDetail)
 		logger.EapAuthComfirmLog.Errorln(problemDetail)
 		c.JSON(http.StatusBadRequest, rsp)
@@ -58,13 +58,13 @@ func HTTPEapAuthMethod(c *gin.Context) {
 
 	rsp := producer.HandleEapAuthComfirmRequest(req)
 
-	responseBody, err := openapi.SetBody(rsp.Body, "application/json")
+	responseBody, err := openapi.SetBody(rsp.Body, applicationJSON)
 	if err != nil {
 		logger.EapAuthComfirmLog.Errorln(err)
 		problemDetails := utils.ProblemDetailsSystemFailure(err.Error())
 		c.JSON(http.StatusInternalServerError, problemDetails)
 	} else {
-		c.Data(rsp.Status, "application/json", responseBody.Bytes())
+		c.Data(rsp.Status, applicationJSON, responseBody.Bytes())
 	}
 }
 
@@ -97,14 +97,14 @@ func HTTPUeAuthenticationsAuthCtxId5gAkaConfirmationPut(c *gin.Context) {
 	requestBody, err := c.GetRawData()
 	if err != nil {
 		problemDetail := utils.ProblemDetailsSystemFailure(err.Error())
-		logger.Auth5gAkaComfirmLog.Errorf("Get Request Body error: %+v", err)
+		logger.Auth5gAkaComfirmLog.Errorf(getRequestBodyErr, err)
 		c.JSON(http.StatusInternalServerError, problemDetail)
 		return
 	}
 
-	err = openapi.Decode(&confirmationData, requestBody, "application/json")
+	err = openapi.Decode(&confirmationData, requestBody, applicationJSON)
 	if err != nil {
-		problemDetail := "[Request Body] " + err.Error()
+		problemDetail := requestBodyLog + err.Error()
 		rsp := utils.ProblemDetailsMalformedRequestSyntax(problemDetail)
 		logger.Auth5gAkaComfirmLog.Errorln(problemDetail)
 		c.JSON(http.StatusBadRequest, rsp)
@@ -116,13 +116,13 @@ func HTTPUeAuthenticationsAuthCtxId5gAkaConfirmationPut(c *gin.Context) {
 
 	rsp := producer.HandleAuth5gAkaComfirmRequest(req)
 
-	responseBody, err := openapi.SetBody(rsp.Body, "application/json")
+	responseBody, err := openapi.SetBody(rsp.Body, applicationJSON)
 	if err != nil {
 		logger.Auth5gAkaComfirmLog.Errorln(err)
 		problemDetails := utils.ProblemDetailsSystemFailure(err.Error())
 		c.JSON(http.StatusInternalServerError, problemDetails)
 	} else {
-		c.Data(rsp.Status, "application/json", responseBody.Bytes())
+		c.Data(rsp.Status, applicationJSON, responseBody.Bytes())
 	}
 }
 
@@ -134,14 +134,14 @@ func HTTPUeAuthenticationsDeregisterPost(c *gin.Context) {
 	requestBody, err := c.GetRawData()
 	if err != nil {
 		problemDetail := utils.ProblemDetailsSystemFailure(err.Error())
-		logger.UeAuthPostLog.Errorf("Get Request Body error: %+v", err)
+		logger.UeAuthPostLog.Errorf(getRequestBodyErr, err)
 		c.JSON(http.StatusInternalServerError, problemDetail)
 		return
 	}
 
-	err = openapi.Decode(&deregistrationInfo, requestBody, "application/json")
+	err = openapi.Decode(&deregistrationInfo, requestBody, applicationJSON)
 	if err != nil {
-		problemDetail := "[Request Body] " + err.Error()
+		problemDetail := requestBodyLog + err.Error()
 		rsp := utils.ProblemDetailsMalformedRequestSyntax(problemDetail)
 		logger.UeAuthPostLog.Errorln(problemDetail)
 		c.JSON(http.StatusBadRequest, rsp)
@@ -155,13 +155,13 @@ func HTTPUeAuthenticationsDeregisterPost(c *gin.Context) {
 		return
 	}
 
-	responseBody, err := openapi.SetBody(rsp.Body, "application/json")
+	responseBody, err := openapi.SetBody(rsp.Body, applicationJSON)
 	if err != nil {
 		logger.UeAuthPostLog.Errorln(err)
 		problemDetails := utils.ProblemDetailsSystemFailure(err.Error())
 		c.JSON(http.StatusInternalServerError, problemDetails)
 	} else {
-		c.Data(rsp.Status, "application/json", responseBody.Bytes())
+		c.Data(rsp.Status, applicationJSON, responseBody.Bytes())
 	}
 }
 
@@ -173,14 +173,14 @@ func HTTPUeAuthenticationsPost(c *gin.Context) {
 	requestBody, err := c.GetRawData()
 	if err != nil {
 		problemDetail := utils.ProblemDetailsSystemFailure(err.Error())
-		logger.UeAuthPostLog.Errorf("Get Request Body error: %+v", err)
+		logger.UeAuthPostLog.Errorf(getRequestBodyErr, err)
 		c.JSON(http.StatusInternalServerError, problemDetail)
 		return
 	}
 
-	err = openapi.Decode(&authInfo, requestBody, "application/json")
+	err = openapi.Decode(&authInfo, requestBody, applicationJSON)
 	if err != nil {
-		problemDetail := "[Request Body] " + err.Error()
+		problemDetail := requestBodyLog + err.Error()
 		rsp := utils.ProblemDetailsMalformedRequestSyntax(problemDetail)
 		logger.UeAuthPostLog.Errorln(problemDetail)
 		c.JSON(http.StatusBadRequest, rsp)
@@ -194,12 +194,12 @@ func HTTPUeAuthenticationsPost(c *gin.Context) {
 	for key, value := range rsp.Header {
 		c.Header(key, value[0])
 	}
-	responseBody, err := openapi.SetBody(rsp.Body, "application/json")
+	responseBody, err := openapi.SetBody(rsp.Body, applicationJSON)
 	if err != nil {
 		logger.UeAuthPostLog.Errorln(err)
 		problemDetails := utils.ProblemDetailsSystemFailure(err.Error())
 		c.JSON(http.StatusInternalServerError, problemDetails)
 	} else {
-		c.Data(rsp.Status, "application/json", responseBody.Bytes())
+		c.Data(rsp.Status, applicationJSON, responseBody.Bytes())
 	}
 }
