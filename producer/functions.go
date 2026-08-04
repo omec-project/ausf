@@ -29,8 +29,11 @@ import (
 )
 
 var (
-	udmCacheMu      sync.Mutex
-	cachedUdmClient *Nudm_UEAU.APIClient
+	udmUrlMu    sync.RWMutex // protects AUSFContext.UdmUeauUrl
+	udmClientMu sync.Mutex   // protects cachedUdmClient and cachedUdmClientURL
+
+	cachedUdmClient    *Nudm_UEAU.APIClient
+	cachedUdmClientURL string
 )
 
 var (
@@ -284,8 +287,11 @@ func ConstructEapNoTypePkt(code radius.EapCode, pktID uint8) string {
 
 func GetUdmUrl(nrfUri string) string {
 	self := ausf_context.GetSelf()
-	if self.UdmUeauUrl != "" {
-		return self.UdmUeauUrl
+	udmUrlMu.RLock()
+	cached := self.UdmUeauUrl
+	udmUrlMu.RUnlock()
+	if cached != "" {
+		return cached
 	}
 
 	udmUrl := "https://localhost:29503" // default
@@ -312,7 +318,9 @@ func GetUdmUrl(nrfUri string) string {
 					continue
 				}
 				if apiPrefix, ok := ueauService.GetApiPrefixOk(); ok && apiPrefix != nil && *apiPrefix != "" {
+					udmUrlMu.Lock()
 					self.UdmUeauUrl = *apiPrefix
+					udmUrlMu.Unlock()
 					return *apiPrefix
 				}
 				for _, ueauEndPoint := range ueauService.IpEndPoints {
@@ -320,7 +328,9 @@ func GetUdmUrl(nrfUri string) string {
 						continue
 					}
 					url := string(ueauService.GetScheme()) + "://" + ueauEndPoint.GetIpv4Address() + ":" + strconv.Itoa(int(ueauEndPoint.GetPort()))
+					udmUrlMu.Lock()
 					self.UdmUeauUrl = url
+					udmUrlMu.Unlock()
 					return url
 				}
 			}
@@ -332,10 +342,22 @@ func GetUdmUrl(nrfUri string) string {
 	return udmUrl
 }
 
+// invalidateUdmCache clears URL + client caches so the next request triggers fresh NRF discovery.
+func invalidateUdmCache() {
+	udmUrlMu.Lock()
+	ausf_context.GetSelf().UdmUeauUrl = ""
+	udmUrlMu.Unlock()
+
+	udmClientMu.Lock()
+	cachedUdmClient = nil
+	cachedUdmClientURL = ""
+	udmClientMu.Unlock()
+}
+
 func createClientToUdmUeau(udmUrl string) *Nudm_UEAU.APIClient {
-	udmCacheMu.Lock()
-	defer udmCacheMu.Unlock()
-	if cachedUdmClient != nil {
+	udmClientMu.Lock()
+	defer udmClientMu.Unlock()
+	if cachedUdmClient != nil && cachedUdmClientURL == udmUrl {
 		return cachedUdmClient
 	}
 	configuration := Nudm_UEAU.NewConfiguration()
@@ -345,6 +367,7 @@ func createClientToUdmUeau(udmUrl string) *Nudm_UEAU.APIClient {
 		serverConfig.Variables["apiRoot"] = apiRootVar
 	}
 	cachedUdmClient = Nudm_UEAU.NewAPIClient(configuration)
+	cachedUdmClientURL = udmUrl
 	return cachedUdmClient
 }
 

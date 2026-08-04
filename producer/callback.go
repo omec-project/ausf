@@ -50,6 +50,9 @@ func NfSubscriptionStatusNotifyProcedure(notificationData models.NotificationDat
 			ok := NRFCacheRemoveNfProfileFromNrfCache(nfInstanceId)
 			logger.ProducerLog.Debugf("nfinstance %v deleted from cache: %v", nfInstanceId, ok)
 		}
+		if nfProfile, ok := notificationData.GetNfProfileOk(); ok && nfProfile != nil && nfProfile.GetNfType() == models.NFTYPE_UDM {
+			invalidateUdmCache()
+		}
 		if subscriptionId, ok := ausfContext.GetSelf().NfStatusSubscriptions.Load(nfInstanceId); ok {
 			logger.ConsumerLog.Debugf("SubscriptionId of nfInstance %v is %v", nfInstanceId, subscriptionId.(string))
 			problemDetails, err := consumer.SendRemoveSubscription(subscriptionId.(string))
