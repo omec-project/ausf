@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/bronze1man/radius"
@@ -25,6 +26,11 @@ import (
 	"github.com/omec-project/openapi/v2/Nnrf_NFDiscovery"
 	"github.com/omec-project/openapi/v2/Nudm_UEAU"
 	"github.com/omec-project/openapi/v2/models"
+)
+
+var (
+	udmCacheMu      sync.Mutex
+	cachedUdmClient *Nudm_UEAU.APIClient
 )
 
 var (
@@ -277,6 +283,11 @@ func ConstructEapNoTypePkt(code radius.EapCode, pktID uint8) string {
 }
 
 func GetUdmUrl(nrfUri string) string {
+	self := ausf_context.GetSelf()
+	if self.UdmUeauUrl != "" {
+		return self.UdmUeauUrl
+	}
+
 	udmUrl := "https://localhost:29503" // default
 	configureSearchUDMRequest := func(request Nnrf_NFDiscovery.ApiSearchNFInstancesRequest) Nnrf_NFDiscovery.ApiSearchNFInstancesRequest {
 		return request.ServiceNames([]models.ServiceName{models.SERVICENAME_NUDM_UEAU})
@@ -301,13 +312,16 @@ func GetUdmUrl(nrfUri string) string {
 					continue
 				}
 				if apiPrefix, ok := ueauService.GetApiPrefixOk(); ok && apiPrefix != nil && *apiPrefix != "" {
+					self.UdmUeauUrl = *apiPrefix
 					return *apiPrefix
 				}
 				for _, ueauEndPoint := range ueauService.IpEndPoints {
 					if ueauEndPoint.GetIpv4Address() == "" || ueauEndPoint.GetPort() == 0 {
 						continue
 					}
-					return string(ueauService.GetScheme()) + "://" + ueauEndPoint.GetIpv4Address() + ":" + strconv.Itoa(int(ueauEndPoint.GetPort()))
+					url := string(ueauService.GetScheme()) + "://" + ueauEndPoint.GetIpv4Address() + ":" + strconv.Itoa(int(ueauEndPoint.GetPort()))
+					self.UdmUeauUrl = url
+					return url
 				}
 			}
 		}
@@ -319,14 +333,19 @@ func GetUdmUrl(nrfUri string) string {
 }
 
 func createClientToUdmUeau(udmUrl string) *Nudm_UEAU.APIClient {
+	udmCacheMu.Lock()
+	defer udmCacheMu.Unlock()
+	if cachedUdmClient != nil {
+		return cachedUdmClient
+	}
 	configuration := Nudm_UEAU.NewConfiguration()
 	serverConfig := &configuration.Servers[0]
 	if apiRootVar, exists := serverConfig.Variables["apiRoot"]; exists {
 		apiRootVar.DefaultValue = udmUrl
 		serverConfig.Variables["apiRoot"] = apiRootVar
 	}
-	clientAPI := Nudm_UEAU.NewAPIClient(configuration)
-	return clientAPI
+	cachedUdmClient = Nudm_UEAU.NewAPIClient(configuration)
+	return cachedUdmClient
 }
 
 func sendAuthResultToUDM(id string, authType models.AuthType, success bool, servingNetworkName, udmUrl string) error {

@@ -131,6 +131,7 @@ func TestGetUDMUri(t *testing.T) {
 	}
 	for i := range parameters {
 		t.Run(fmt.Sprintf("NRF caching is [%v]", parameters[i].inputEnableNrfCaching), func(t *testing.T) {
+			ausfContext.GetSelf().UdmUeauUrl = ""
 			ausfContext.GetSelf().EnableNrfCaching = parameters[i].inputEnableNrfCaching
 			udm_uri := producer.GetUdmUrl(ausfContext.GetSelf().NrfUri)
 			if callCountSearchNFInstances != parameters[i].expectedCallCountSearchNFInstances {
@@ -193,6 +194,7 @@ func TestGetUDMUri_SkipsInstancesWithoutUsableEndpoints(t *testing.T) {
 		return nil, nil
 	}
 
+	ausfContext.GetSelf().UdmUeauUrl = ""
 	if got := producer.GetUdmUrl(ausfContext.GetSelf().NrfUri); got != "https://20.20.13.1:8090" {
 		t.Fatalf("unexpected UDM URL: got %q want %q", got, "https://20.20.13.1:8090")
 	}
