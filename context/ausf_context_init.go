@@ -59,9 +59,13 @@ func configureSbiSettings(context *AUSFContext, sbi *factory.Sbi) {
 		context.SBIPort = sbi.Port
 	}
 
-	if sbi.Scheme == "https" {
+	switch sbi.Scheme {
+	case "https":
 		context.UriScheme = models.URISCHEME_HTTPS
-	} else {
+	case "", "http":
+		context.UriScheme = models.URISCHEME_HTTP
+	default:
+		logger.InitLog.Warnf("unsupported SBI scheme %q; defaulting to http", sbi.Scheme)
 		context.UriScheme = models.URISCHEME_HTTP
 	}
 	if tls := sbi.TLS; tls != nil {
