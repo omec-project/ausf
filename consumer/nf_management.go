@@ -17,6 +17,8 @@ import (
 	"github.com/omec-project/openapi/v2/models"
 )
 
+const errServerNoResponse = "server no response"
+
 func closeNFManagementResponseBody(res *http.Response, operation string) {
 	if res == nil || res.Body == nil {
 		return
@@ -45,7 +47,7 @@ func getNfProfile(ausfContext *ausfContext.AUSFContext, plmnConfig []models.Plmn
 	ausfInfo.SetGroupId(ausfContext.GroupID)
 	profile.SetAusfInfo(*ausfInfo)
 	profile.SetPlmnList(plmnConfig)
-	return
+	return profile, err
 }
 
 var SendRegisterNFInstance = func(plmnConfig []models.PlmnId) (prof *models.NFProfile, resourceNrfUri string, err error) {
@@ -194,7 +196,7 @@ var SendCreateSubscription = func(nrfUri string, nrfSubscriptionData models.Subs
 	}
 
 	// Server no response case
-	err = openapi.ReportError("server no response")
+	err = openapi.ReportError(errServerNoResponse)
 	return nil, nil, err
 }
 
@@ -237,6 +239,6 @@ var SendRemoveSubscription = func(subscriptionId string) (problemDetails *models
 	}
 
 	// Server no response case
-	err = openapi.ReportError("server no response")
+	err = openapi.ReportError(errServerNoResponse)
 	return nil, err
 }
