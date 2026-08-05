@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/bronze1man/radius"
@@ -25,6 +26,14 @@ import (
 	"github.com/omec-project/openapi/v2/Nnrf_NFDiscovery"
 	"github.com/omec-project/openapi/v2/Nudm_UEAU"
 	"github.com/omec-project/openapi/v2/models"
+)
+
+var (
+	udmUrlMu    sync.RWMutex // protects AUSFContext.UdmUeauUrl
+	udmClientMu sync.Mutex   // protects cachedUdmClient and cachedUdmClientURL
+
+	cachedUdmClient    *Nudm_UEAU.APIClient
+	cachedUdmClientURL string
 )
 
 var (
@@ -277,6 +286,14 @@ func ConstructEapNoTypePkt(code radius.EapCode, pktID uint8) string {
 }
 
 func GetUdmUrl(nrfUri string) string {
+	self := ausf_context.GetSelf()
+	udmUrlMu.RLock()
+	cached := self.UdmUeauUrl
+	udmUrlMu.RUnlock()
+	if cached != "" {
+		return cached
+	}
+
 	udmUrl := "https://localhost:29503" // default
 	configureSearchUDMRequest := func(request Nnrf_NFDiscovery.ApiSearchNFInstancesRequest) Nnrf_NFDiscovery.ApiSearchNFInstancesRequest {
 		return request.ServiceNames([]models.ServiceName{models.SERVICENAME_NUDM_UEAU})
@@ -301,13 +318,20 @@ func GetUdmUrl(nrfUri string) string {
 					continue
 				}
 				if apiPrefix, ok := ueauService.GetApiPrefixOk(); ok && apiPrefix != nil && *apiPrefix != "" {
+					udmUrlMu.Lock()
+					self.UdmUeauUrl = *apiPrefix
+					udmUrlMu.Unlock()
 					return *apiPrefix
 				}
 				for _, ueauEndPoint := range ueauService.IpEndPoints {
 					if ueauEndPoint.GetIpv4Address() == "" || ueauEndPoint.GetPort() == 0 {
 						continue
 					}
-					return string(ueauService.GetScheme()) + "://" + ueauEndPoint.GetIpv4Address() + ":" + strconv.Itoa(int(ueauEndPoint.GetPort()))
+					url := string(ueauService.GetScheme()) + "://" + ueauEndPoint.GetIpv4Address() + ":" + strconv.Itoa(int(ueauEndPoint.GetPort()))
+					udmUrlMu.Lock()
+					self.UdmUeauUrl = url
+					udmUrlMu.Unlock()
+					return url
 				}
 			}
 		}
@@ -318,15 +342,33 @@ func GetUdmUrl(nrfUri string) string {
 	return udmUrl
 }
 
+// invalidateUdmCache clears URL + client caches so the next request triggers fresh NRF discovery.
+func invalidateUdmCache() {
+	udmUrlMu.Lock()
+	ausf_context.GetSelf().UdmUeauUrl = ""
+	udmUrlMu.Unlock()
+
+	udmClientMu.Lock()
+	cachedUdmClient = nil
+	cachedUdmClientURL = ""
+	udmClientMu.Unlock()
+}
+
 func createClientToUdmUeau(udmUrl string) *Nudm_UEAU.APIClient {
+	udmClientMu.Lock()
+	defer udmClientMu.Unlock()
+	if cachedUdmClient != nil && cachedUdmClientURL == udmUrl {
+		return cachedUdmClient
+	}
 	configuration := Nudm_UEAU.NewConfiguration()
 	serverConfig := &configuration.Servers[0]
 	if apiRootVar, exists := serverConfig.Variables["apiRoot"]; exists {
 		apiRootVar.DefaultValue = udmUrl
 		serverConfig.Variables["apiRoot"] = apiRootVar
 	}
-	clientAPI := Nudm_UEAU.NewAPIClient(configuration)
-	return clientAPI
+	cachedUdmClient = Nudm_UEAU.NewAPIClient(configuration)
+	cachedUdmClientURL = udmUrl
+	return cachedUdmClient
 }
 
 func sendAuthResultToUDM(id string, authType models.AuthType, success bool, servingNetworkName, udmUrl string) error {

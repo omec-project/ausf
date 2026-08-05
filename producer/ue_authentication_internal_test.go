@@ -15,6 +15,8 @@ import (
 	"github.com/omec-project/openapi/v2/models"
 )
 
+const testUdmUrl = "https://udm.example"
+
 var initProducerTestOnce sync.Once
 
 func initProducerTestContext(t *testing.T) {
@@ -41,7 +43,7 @@ func TestUeAuthPostRequestProcedure_UnsupportedAuthTypeDoesNotPersistContext(t *
 
 	supiOrSuci := "imsi-001010000000001"
 	resolvedSupi := "imsi-001010000000002"
-	resolveUdmURL = func(string) string { return "https://udm.example" }
+	resolveUdmURL = func(string) string { return testUdmUrl }
 	executeGenerateAuthData = func(_ *Nudm_UEAU.APIClient, _ string, _ models.AuthenticationInfoRequest) (*models.AuthenticationInfoResult, *http.Response, error) {
 		result := models.NewAuthenticationInfoResult(models.AuthType("UNSUPPORTED"))
 		result.SetSupi(resolvedSupi)
@@ -78,7 +80,7 @@ func TestUeAuthPostRequestProcedure_InvalidKausfDoesNotPersistContext(t *testing
 
 	supiOrSuci := "imsi-001010000000003"
 	resolvedSupi := "imsi-001010000000004"
-	resolveUdmURL = func(string) string { return "https://udm.example" }
+	resolveUdmURL = func(string) string { return testUdmUrl }
 	executeGenerateAuthData = func(_ *Nudm_UEAU.APIClient, _ string, _ models.AuthenticationInfoRequest) (*models.AuthenticationInfoResult, *http.Response, error) {
 		result := models.NewAuthenticationInfoResult(models.AUTHTYPE__5_G_AKA)
 		result.SetSupi(resolvedSupi)
@@ -126,7 +128,7 @@ func TestDeleteAuthenticationResultProcedureRemovesLocalState(t *testing.T) {
 	ausf_context.AddAusfUeContextToPool(&ausf_context.AusfUeContext{
 		Supi:               supi,
 		ServingNetworkName: "5G:mnc001.mcc001.3gppnetwork.org",
-		UdmUeauUrl:         "https://udm.example",
+		UdmUeauUrl:         testUdmUrl,
 	})
 	defer ausf_context.RemoveAusfUeContextFromPool(supi)
 
@@ -170,7 +172,7 @@ func TestDeregisterAuthContextProcedureRemovesAllMatchingAuthContexts(t *testing
 	ausf_context.AddAusfUeContextToPool(&ausf_context.AusfUeContext{
 		Supi:               supi,
 		ServingNetworkName: "5G:mnc001.mcc001.3gppnetwork.org",
-		UdmUeauUrl:         "https://udm.example",
+		UdmUeauUrl:         testUdmUrl,
 		XRES:               "xres",
 	})
 	defer ausf_context.RemoveAusfUeContextFromPool(supi)
@@ -198,5 +200,30 @@ func TestDeregisterAuthContextProcedureRemovesAllMatchingAuthContexts(t *testing
 	}
 	if ausf_context.CheckIfAusfUeContextExists(supi) {
 		t.Fatalf("expected AUSF UE context removed for %s", supi)
+	}
+}
+
+func TestInvalidateUdmCache_ClearsBothCaches(t *testing.T) {
+	initProducerTestContext(t)
+
+	ausf_context.GetSelf().UdmUeauUrl = testUdmUrl
+	cachedUdmClient = Nudm_UEAU.NewAPIClient(Nudm_UEAU.NewConfiguration())
+	cachedUdmClientURL = testUdmUrl
+	t.Cleanup(func() {
+		ausf_context.GetSelf().UdmUeauUrl = ""
+		cachedUdmClient = nil
+		cachedUdmClientURL = ""
+	})
+
+	invalidateUdmCache()
+
+	if ausf_context.GetSelf().UdmUeauUrl != "" {
+		t.Errorf("UdmUeauUrl not cleared: got %q", ausf_context.GetSelf().UdmUeauUrl)
+	}
+	if cachedUdmClient != nil {
+		t.Error("cachedUdmClient not cleared")
+	}
+	if cachedUdmClientURL != "" {
+		t.Errorf("cachedUdmClientURL not cleared: got %q", cachedUdmClientURL)
 	}
 }
