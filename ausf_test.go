@@ -131,6 +131,7 @@ func TestGetUDMUri(t *testing.T) {
 	}
 	for i := range parameters {
 		t.Run(fmt.Sprintf("NRF caching is [%v]", parameters[i].inputEnableNrfCaching), func(t *testing.T) {
+			ausfContext.GetSelf().UdmUeauUrl = ""
 			ausfContext.GetSelf().EnableNrfCaching = parameters[i].inputEnableNrfCaching
 			udm_uri := producer.GetUdmUrl(ausfContext.GetSelf().NrfUri)
 			if callCountSearchNFInstances != parameters[i].expectedCallCountSearchNFInstances {
@@ -193,6 +194,7 @@ func TestGetUDMUri_SkipsInstancesWithoutUsableEndpoints(t *testing.T) {
 		return nil, nil
 	}
 
+	ausfContext.GetSelf().UdmUeauUrl = ""
 	if got := producer.GetUdmUrl(ausfContext.GetSelf().NrfUri); got != "https://20.20.13.1:8090" {
 		t.Fatalf("unexpected UDM URL: got %q want %q", got, "https://20.20.13.1:8090")
 	}
@@ -501,6 +503,7 @@ func TestNfSubscriptionStatusNotify(t *testing.T) {
 		expectedCallCountSendRemoveSubscription              int
 		expectedCallCountNRFCacheRemoveNfProfileFromNrfCache int
 		enableNrfCaching                                     bool
+		wantUdmUrlCleared                                    bool
 	}{
 		{
 			nil,
@@ -512,6 +515,7 @@ func TestNfSubscriptionStatusNotify(t *testing.T) {
 			"NF_DEREGISTERED",
 			1,
 			1,
+			true,
 			true,
 		},
 		{
@@ -525,6 +529,7 @@ func TestNfSubscriptionStatusNotify(t *testing.T) {
 			0,
 			1,
 			true,
+			true,
 		},
 		{
 			nil,
@@ -537,6 +542,7 @@ func TestNfSubscriptionStatusNotify(t *testing.T) {
 			1,
 			0,
 			false,
+			true,
 		},
 		{
 			nil,
@@ -549,6 +555,7 @@ func TestNfSubscriptionStatusNotify(t *testing.T) {
 			0,
 			0,
 			true,
+			false,
 		},
 		{
 			nil,
@@ -560,6 +567,7 @@ func TestNfSubscriptionStatusNotify(t *testing.T) {
 			"NF_DEREGISTERED",
 			1,
 			1,
+			true,
 			true,
 		},
 		{
@@ -573,6 +581,7 @@ func TestNfSubscriptionStatusNotify(t *testing.T) {
 			0,
 			0,
 			true,
+			false,
 		},
 		{
 			&badRequestProblem,
@@ -585,10 +594,13 @@ func TestNfSubscriptionStatusNotify(t *testing.T) {
 			0,
 			0,
 			true,
+			false,
 		},
 	}
+	const cachedUdmUrl = "https://10.0.13.1:8090"
 	for i := range parameters {
 		t.Run(fmt.Sprintf("NfSubscriptionStatusNotify testname %v result %v", parameters[i].testName, parameters[i].result), func(t *testing.T) {
+			ausfContext.GetSelf().UdmUeauUrl = cachedUdmUrl
 			ausfContext.GetSelf().EnableNrfCaching = parameters[i].enableNrfCaching
 			ausfContext.GetSelf().NfStatusSubscriptions.Store(parameters[i].nfInstanceIdForSubscription, parameters[i].subscriptionID)
 			notificationData := models.NotificationData{
@@ -610,8 +622,16 @@ func TestNfSubscriptionStatusNotify(t *testing.T) {
 				t.Errorf("NF Profile cache removal count mismatch. got = %d, want = %d (NF Profile is not removed from NRF cache)",
 					callCountNRFCacheRemoveNfProfileFromNrfCache, parameters[i].expectedCallCountNRFCacheRemoveNfProfileFromNrfCache)
 			}
+			gotUrl := ausfContext.GetSelf().UdmUeauUrl
+			if parameters[i].wantUdmUrlCleared && gotUrl != "" {
+				t.Errorf("UdmUeauUrl not cleared on UDM deregistration: got %q", gotUrl)
+			}
+			if !parameters[i].wantUdmUrlCleared && gotUrl != cachedUdmUrl {
+				t.Errorf("UdmUeauUrl should not have been cleared: got %q, want %q", gotUrl, cachedUdmUrl)
+			}
 			callCountSendRemoveSubscription = 0
 			callCountNRFCacheRemoveNfProfileFromNrfCache = 0
+			ausfContext.GetSelf().UdmUeauUrl = ""
 			ausfContext.GetSelf().NfStatusSubscriptions.Delete(parameters[i].nfInstanceIdForSubscription)
 		})
 	}
