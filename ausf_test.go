@@ -30,7 +30,13 @@ import (
 	"github.com/omec-project/openapi/v2/utils"
 )
 
-const httpVersion = "HTTP/1.0"
+const (
+	httpVersion         = "HTTP/1.0"
+	udmURI2             = "https://20.20.13.1:8090"
+	nfTypeUDM           = "UDM"
+	httpStatus200OK     = "200 OK"
+	nfEventDeregistered = "NF_DEREGISTERED"
+)
 
 var (
 	AUSFTest       = &service.AUSF{}
@@ -54,7 +60,7 @@ func TestGetUDMUri(t *testing.T) {
 	origNRFCacheSearchNFInstances := consumer.NRFCacheSearchNFInstances
 	origSendNfDiscoveryToNrf := consumer.SendNfDiscoveryToNrf
 	udmUri1 := "https://10.0.13.1:8090"
-	udmUri2 := "https://20.20.13.1:8090"
+	udmUri2 := udmURI2
 	udmInfo1 := models.NewUdmInfo()
 	udmProfile1 := models.NewNFProfileDiscovery(nfInstanceID, models.NFTYPE_UDM, models.NFSTATUS_REGISTERED)
 	udmProfile1.SetUdmInfo(*udmInfo1)
@@ -123,7 +129,7 @@ func TestGetUDMUri(t *testing.T) {
 		{
 			"NRF caching is disabled request is sent to discover UDM",
 			"UDM URI is retrieved from NRF trough the NF discovery process",
-			"https://20.20.13.1:8090",
+			udmURI2,
 			false,
 			0,
 			1,
@@ -195,8 +201,8 @@ func TestGetUDMUri_SkipsInstancesWithoutUsableEndpoints(t *testing.T) {
 	}
 
 	ausfContext.GetSelf().UdmUeauUrl = ""
-	if got := producer.GetUdmUrl(ausfContext.GetSelf().NrfUri); got != "https://20.20.13.1:8090" {
-		t.Fatalf("unexpected UDM URL: got %q want %q", got, "https://20.20.13.1:8090")
+	if got := producer.GetUdmUrl(ausfContext.GetSelf().NrfUri); got != udmURI2 {
+		t.Fatalf("unexpected UDM URL: got %q want %q", got, udmURI2)
 	}
 }
 
@@ -207,7 +213,7 @@ func TestCreateSubscriptionSuccess(t *testing.T) {
 			RoutingIndicators: []string{},
 		},
 		NfInstanceId: nfInstanceID,
-		NfType:       "UDM",
+		NfType:       nfTypeUDM,
 		NfStatus:     "REGISTERED",
 	}
 	nfInstances := []models.NFProfileDiscovery{
@@ -217,7 +223,7 @@ func TestCreateSubscriptionSuccess(t *testing.T) {
 	stringReader := strings.NewReader("successful!")
 	stringReadCloser := io.NopCloser(stringReader)
 	httpResponse := http.Response{
-		Status:     "200 OK",
+		Status:     httpStatus200OK,
 		StatusCode: 200,
 		Proto:      httpVersion,
 		ProtoMajor: 1,
@@ -275,7 +281,7 @@ func TestCreateSubscriptionSuccess(t *testing.T) {
 	}
 	for i := range parameters {
 		t.Run(fmt.Sprintf("CreateSubscription testname %v result %v", parameters[i].testName, parameters[i].result), func(t *testing.T) {
-			_, err := consumer.SendNfDiscoveryToNrf(context.Background(), "testNRFUri", "UDM", "AUSF", configureSearchUDMRequest)
+			_, err := consumer.SendNfDiscoveryToNrf(context.Background(), "testNRFUri", nfTypeUDM, "AUSF", configureSearchUDMRequest)
 			val, _ := ausfContext.GetSelf().NfStatusSubscriptions.Load(parameters[i].nfInstanceId)
 			if val != parameters[i].subscriptionId {
 				t.Errorf("Subscription ID mismatch. got = %v, want = %v (Correct Subscription ID is not stored in the AUSF context)",
@@ -302,7 +308,7 @@ func TestSendNfDiscoveryToNrf_WhenSearchResultIsNil_ReturnsError(t *testing.T) {
 
 	consumer.StoreApiSearchNFInstances = func(*Nnrf_NFDiscovery.NFInstancesStoreAPIService, Nnrf_NFDiscovery.ApiSearchNFInstancesRequest) (*models.SearchResult, *http.Response, error) {
 		return nil, &http.Response{
-			Status:     "200 OK",
+			Status:     httpStatus200OK,
 			StatusCode: http.StatusOK,
 			Body:       io.NopCloser(strings.NewReader("{}")),
 		}, nil
@@ -324,7 +330,7 @@ func TestCreateSubscriptionFail(t *testing.T) {
 			RoutingIndicators: []string{},
 		},
 		NfInstanceId: "84343-4343-43-434-343",
-		NfType:       "UDM",
+		NfType:       nfTypeUDM,
 		NfStatus:     "REGISTERED",
 	}
 	nfInstances := []models.NFProfileDiscovery{
@@ -349,7 +355,7 @@ func TestCreateSubscriptionFail(t *testing.T) {
 		Body:       stringReadCloser,
 	}
 	httpResponseSuccess := http.Response{
-		Status:     "200 OK",
+		Status:     httpStatus200OK,
 		StatusCode: 200,
 		Proto:      httpVersion,
 		ProtoMajor: 1,
@@ -442,7 +448,7 @@ func TestCreateSubscriptionFail(t *testing.T) {
 				callCountSendCreateSubscription++
 				return &parameters[i].nrfSubscriptionData, parameters[i].subscriptionProblem, parameters[i].subscriptionError
 			}
-			_, err := consumer.SendNfDiscoveryToNrf(context.Background(), "testNRFUri", "UDM", "AUSF", configureSearchUDMRequest)
+			_, err := consumer.SendNfDiscoveryToNrf(context.Background(), "testNRFUri", nfTypeUDM, "AUSF", configureSearchUDMRequest)
 			val, _ := ausfContext.GetSelf().NfStatusSubscriptions.Load(udmProfile.NfInstanceId)
 			if val != parameters[i].expectedSubscriptionId {
 				t.Errorf("Subscription ID mismatch. got = %v, want = %v (Correct Subscription ID is not stored in the AUSF context)",
@@ -488,7 +494,7 @@ func TestNfSubscriptionStatusNotify(t *testing.T) {
 			RoutingIndicators: []string{},
 		},
 		NfInstanceId: nfInstanceID,
-		NfType:       "UDM",
+		NfType:       nfTypeUDM,
 		NfStatus:     "DEREGISTERED",
 	}
 	badRequestProblem := *utils.ProblemDetailsMandatoryIeMissing("Missing IE [Event]/[NfInstanceUri] in NotificationData")
@@ -512,7 +518,7 @@ func TestNfSubscriptionStatusNotify(t *testing.T) {
 			nfInstanceID,
 			nfInstanceID,
 			subscriptionID,
-			"NF_DEREGISTERED",
+			nfEventDeregistered,
 			1,
 			1,
 			true,
@@ -525,7 +531,7 @@ func TestNfSubscriptionStatusNotify(t *testing.T) {
 			nfInstanceID,
 			"",
 			"",
-			"NF_DEREGISTERED",
+			nfEventDeregistered,
 			0,
 			1,
 			true,
@@ -538,7 +544,7 @@ func TestNfSubscriptionStatusNotify(t *testing.T) {
 			nfInstanceID,
 			nfInstanceID,
 			subscriptionID,
-			"NF_DEREGISTERED",
+			nfEventDeregistered,
 			1,
 			0,
 			false,
@@ -564,7 +570,7 @@ func TestNfSubscriptionStatusNotify(t *testing.T) {
 			nfInstanceID,
 			nfInstanceID,
 			subscriptionID,
-			"NF_DEREGISTERED",
+			nfEventDeregistered,
 			1,
 			1,
 			true,
@@ -577,7 +583,7 @@ func TestNfSubscriptionStatusNotify(t *testing.T) {
 			"",
 			"",
 			subscriptionID,
-			"NF_DEREGISTERED",
+			nfEventDeregistered,
 			0,
 			0,
 			true,

@@ -20,6 +20,8 @@ import (
 
 var AusfConfig Config
 
+const defaultWebuiUri = "http://webui:5001"
+
 // TODO: Support configuration update from REST api
 func InitConfigFactory(f string) error {
 	content, err := os.ReadFile(f)
@@ -32,7 +34,7 @@ func InitConfigFactory(f string) error {
 		return err
 	}
 	if AusfConfig.Configuration.WebuiUri == "" {
-		AusfConfig.Configuration.WebuiUri = "http://webui:5001"
+		AusfConfig.Configuration.WebuiUri = defaultWebuiUri
 		logger.CfgLog.Infof("webuiUri not set in configuration file. Using %v", AusfConfig.Configuration.WebuiUri)
 		return nil
 	}

@@ -16,10 +16,10 @@ linters:
   enable:
     - asciicheck
     - dogsled
+    - govet
     - goconst
     - godox
-    - gomodguard
-    - govet
+    - gomodguard_v2
     - misspell
     - nakedret
     - noctx

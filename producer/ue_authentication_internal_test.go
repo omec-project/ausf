@@ -15,7 +15,10 @@ import (
 	"github.com/omec-project/openapi/v2/models"
 )
 
-const testUdmUrl = "https://udm.example"
+const (
+	testUdmUrl         = "https://udm.example"
+	testServingNetwork = "5G:mnc001.mcc001.3gppnetwork.org"
+)
 
 var initProducerTestOnce sync.Once
 
@@ -51,7 +54,7 @@ func TestUeAuthPostRequestProcedure_UnsupportedAuthTypeDoesNotPersistContext(t *
 	}
 
 	response, _, problemDetails := UeAuthPostRequestProcedure(models.AuthenticationInfo{
-		ServingNetworkName: "5G:mnc001.mcc001.3gppnetwork.org",
+		ServingNetworkName: testServingNetwork,
 		SupiOrSuci:         supiOrSuci,
 	})
 
@@ -96,7 +99,7 @@ func TestUeAuthPostRequestProcedure_InvalidKausfDoesNotPersistContext(t *testing
 	}
 
 	response, _, problemDetails := UeAuthPostRequestProcedure(models.AuthenticationInfo{
-		ServingNetworkName: "5G:mnc001.mcc001.3gppnetwork.org",
+		ServingNetworkName: testServingNetwork,
 		SupiOrSuci:         supiOrSuci,
 	})
 
@@ -127,7 +130,7 @@ func TestDeleteAuthenticationResultProcedureRemovesLocalState(t *testing.T) {
 	defer ausf_context.RemoveSuciSupiPairFromMap(authCtxID)
 	ausf_context.AddAusfUeContextToPool(&ausf_context.AusfUeContext{
 		Supi:               supi,
-		ServingNetworkName: "5G:mnc001.mcc001.3gppnetwork.org",
+		ServingNetworkName: testServingNetwork,
 		UdmUeauUrl:         testUdmUrl,
 	})
 	defer ausf_context.RemoveAusfUeContextFromPool(supi)
@@ -171,7 +174,7 @@ func TestDeregisterAuthContextProcedureRemovesAllMatchingAuthContexts(t *testing
 	}
 	ausf_context.AddAusfUeContextToPool(&ausf_context.AusfUeContext{
 		Supi:               supi,
-		ServingNetworkName: "5G:mnc001.mcc001.3gppnetwork.org",
+		ServingNetworkName: testServingNetwork,
 		UdmUeauUrl:         testUdmUrl,
 		XRES:               "xres",
 	})
