@@ -36,12 +36,15 @@ func getNfProfile(ausfContext *ausfContext.AUSFContext, plmnConfig []models.Plmn
 	profile.SetNfType(models.NFTYPE_AUSF)
 	profile.SetNfStatus(models.NFSTATUS_REGISTERED)
 	profile.SetIpv4Addresses([]string{ausfContext.RegisterIPv4})
-	services := []models.NFService{}
+	services := map[string]models.NFService{}
+	serviceList := []models.NFService{}
 	for _, nfService := range ausfContext.NfService {
-		services = append(services, nfService)
+		services[nfService.GetServiceInstanceId()] = nfService
+		serviceList = append(serviceList, nfService)
 	}
 	if len(services) > 0 {
-		profile.SetNfServices(services)
+		profile.SetNfServices(serviceList)
+		profile.SetNfServiceList(services)
 	}
 	ausfInfo := models.NewAusfInfo()
 	ausfInfo.SetGroupId(ausfContext.GroupID)
@@ -54,7 +57,7 @@ var SendRegisterNFInstance = func(plmnConfig []models.PlmnId) (prof *models.NFPr
 	self := ausfContext.GetSelf()
 	nfProfile, err := getNfProfile(self, plmnConfig)
 	if err != nil {
-		return &models.NFProfile{}, "", err
+		return models.NewNFProfileWithDefaults(), "", err
 	}
 
 	configuration := Nnrf_NFManagement.NewConfiguration()
@@ -71,10 +74,10 @@ var SendRegisterNFInstance = func(plmnConfig []models.PlmnId) (prof *models.NFPr
 	logger.ConsumerLog.Debugf("registering NF Instance using profile: %+v", nfProfile)
 
 	if err != nil {
-		return &models.NFProfile{}, "", err
+		return models.NewNFProfileWithDefaults(), "", err
 	}
 	if res == nil {
-		return &models.NFProfile{}, "", openapi.ReportError("no response from server")
+		return models.NewNFProfileWithDefaults(), "", openapi.ReportError("no response from server")
 	}
 
 	switch res.StatusCode {
@@ -89,7 +92,7 @@ var SendRegisterNFInstance = func(plmnConfig []models.PlmnId) (prof *models.NFPr
 		logger.ConsumerLog.Debugln("AUSF NF profile registered to the NRF")
 		return receivedNfProfile, resourceNrfUri, nil
 	default:
-		return receivedNfProfile, "", openapi.ReportError("unexpected status code returned by the NRF %d", res.StatusCode)
+		return receivedNfProfile, "", openapi.ReportError("NRF returned unexpected status code %d", res.StatusCode)
 	}
 }
 
@@ -138,23 +141,23 @@ var SendUpdateNFInstance = func(patchItem []models.PatchItem) (receivedNfProfile
 	receivedNfProfile, res, err = client.NFInstanceIDDocumentAPI.UpdateNFInstanceExecute(apiUpdateNFInstanceRequest)
 	defer closeNFManagementResponseBody(res, "UpdateNFInstance")
 	if err != nil {
-		if openapiErr, ok := err.(openapi.GenericOpenAPIError); ok {
+		if openapiErr, ok := openapi.AsGenericOpenAPIError(err); ok {
 			if model := openapiErr.Model(); model != nil {
 				if problem, ok := model.(models.ProblemDetails); ok {
-					return &models.NFProfile{}, &problem, nil
+					return models.NewNFProfileWithDefaults(), &problem, nil
 				}
 			}
 		}
-		return &models.NFProfile{}, nil, err
+		return models.NewNFProfileWithDefaults(), nil, err
 	}
 
 	if res == nil {
-		return &models.NFProfile{}, nil, openapi.ReportError("no response from server")
+		return models.NewNFProfileWithDefaults(), nil, openapi.ReportError("no response from server")
 	}
 	if res.StatusCode == http.StatusOK || res.StatusCode == http.StatusNoContent {
 		return receivedNfProfile, nil, nil
 	}
-	return &models.NFProfile{}, nil, openapi.ReportError("unexpected response code")
+	return models.NewNFProfileWithDefaults(), nil, openapi.ReportError("unexpected response code")
 }
 
 var SendCreateSubscription = func(nrfUri string, nrfSubscriptionData models.SubscriptionData) (nrfSubData *models.SubscriptionData, problemDetails *models.ProblemDetails, err error) {
