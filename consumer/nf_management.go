@@ -157,7 +157,7 @@ var SendUpdateNFInstance = func(patchItem []models.PatchItem) (receivedNfProfile
 	if res.StatusCode == http.StatusOK || res.StatusCode == http.StatusNoContent {
 		return receivedNfProfile, nil, nil
 	}
-	return models.NewNFProfileWithDefaults(), nil, openapi.ReportError("unexpected response code")
+	return models.NewNFProfileWithDefaults(), nil, openapi.ReportError("unexpected response code %d", res.StatusCode)
 }
 
 var SendCreateSubscription = func(nrfUri string, nrfSubscriptionData models.SubscriptionData) (nrfSubData *models.SubscriptionData, problemDetails *models.ProblemDetails, err error) {
