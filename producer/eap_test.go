@@ -4,6 +4,7 @@
 package producer
 
 import (
+	"encoding/binary"
 	"testing"
 )
 
@@ -64,5 +65,25 @@ func TestEapDecode_RejectsTooShortPacket(t *testing.T) {
 	wire := []byte{0, 1, 0}
 	if _, err := EapDecode(wire); err == nil {
 		t.Fatal("EapDecode() error = nil, want error for packet shorter than base header")
+	}
+}
+
+func TestEapPacketEncode_SuccessFailureDropsTypeData(t *testing.T) {
+	// TypeData must be ignored for Success/Failure codes: RFC 3748 mandates an exact 4-byte packet.
+	original := EapPacket{Code: EapCodeForSuccess, Identifier: 9, TypeData: []byte("unexpected")}
+	wire := original.Encode()
+	if len(wire) != eapBaseHeaderSize {
+		t.Fatalf("Encode() length = %d, want %d", len(wire), eapBaseHeaderSize)
+	}
+}
+
+func TestEapDecode_RejectsOversizedSuccessFailurePacket(t *testing.T) {
+	// Declaring more than 4 bytes for a Success/Failure packet violates RFC 3748 Section 4.
+	wire := make([]byte, eapBaseHeaderSize+4)
+	wire[0] = byte(EapCodeForSuccess)
+	wire[1] = 9
+	binary.BigEndian.PutUint16(wire[2:4], uint16(len(wire)))
+	if _, err := EapDecode(wire); err == nil {
+		t.Fatal("EapDecode() error = nil, want error for oversized Success packet")
 	}
 }

@@ -53,19 +53,24 @@ func (p *EapPacket) hasType() bool {
 }
 
 // Encode renders the packet into its wire format, computing the Length field from the payload size.
+// Success and Failure packets carry no Type or data per RFC 3748 Section 4, so TypeData is ignored for them.
 func (p *EapPacket) Encode() []byte {
 	headerSize := eapBaseHeaderSize
 	if p.hasType() {
 		headerSize++
 	}
-	wire := make([]byte, headerSize+len(p.TypeData))
+	wireSize := headerSize
+	if p.hasType() {
+		wireSize += len(p.TypeData)
+	}
+	wire := make([]byte, wireSize)
 	wire[0] = byte(p.Code)
 	wire[1] = p.Identifier
 	binary.BigEndian.PutUint16(wire[2:4], uint16(len(wire)))
 	if p.hasType() {
 		wire[4] = byte(p.Type)
+		copy(wire[headerSize:], p.TypeData)
 	}
-	copy(wire[headerSize:], p.TypeData)
 	return wire
 }
 
@@ -92,7 +97,9 @@ func EapDecode(wire []byte) (*EapPacket, error) {
 			return nil, openapi.ReportError("eap: declared length %d is smaller than the %d-byte header for Request/Response packets", declaredLen, headerSize)
 		}
 		packet.Type = EapType(wire[4])
+		packet.TypeData = wire[headerSize:declaredLen]
+	} else if declaredLen != eapBaseHeaderSize {
+		return nil, openapi.ReportError("eap: declared length %d must equal the %d-byte header for Success/Failure packets", declaredLen, eapBaseHeaderSize)
 	}
-	packet.TypeData = wire[headerSize:declaredLen]
 	return packet, nil
 }
