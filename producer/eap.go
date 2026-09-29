@@ -35,8 +35,8 @@ const (
 	EapTypeExperimentalUse  EapType = 255
 )
 
-// eapHeaderSize is the size in bytes of the Code, Identifier and Length fields plus the Type byte.
-const eapHeaderSize = 5
+// eapBaseHeaderSize is the size in bytes of the Code, Identifier and Length fields present in every EAP packet.
+const eapBaseHeaderSize = 4
 
 // EapPacket is the RFC 3748 Section 4 EAP packet layout.
 type EapPacket struct {
@@ -46,33 +46,53 @@ type EapPacket struct {
 	TypeData   []byte
 }
 
+// hasType reports whether the packet carries a Type byte, which RFC 3748 Section 4 defines
+// only for Request and Response packets; Success and Failure packets are four bytes long.
+func (p *EapPacket) hasType() bool {
+	return p.Code == EapCodeForRequest || p.Code == EapCodeForResponse
+}
+
 // Encode renders the packet into its wire format, computing the Length field from the payload size.
 func (p *EapPacket) Encode() []byte {
-	wire := make([]byte, eapHeaderSize+len(p.TypeData))
+	headerSize := eapBaseHeaderSize
+	if p.hasType() {
+		headerSize++
+	}
+	wire := make([]byte, headerSize+len(p.TypeData))
 	wire[0] = byte(p.Code)
 	wire[1] = p.Identifier
 	binary.BigEndian.PutUint16(wire[2:4], uint16(len(wire)))
-	wire[4] = byte(p.Type)
-	copy(wire[eapHeaderSize:], p.TypeData)
+	if p.hasType() {
+		wire[4] = byte(p.Type)
+	}
+	copy(wire[headerSize:], p.TypeData)
 	return wire
 }
 
 // EapDecode parses an RFC 3748 EAP packet from its wire format, honoring the declared Length field.
 func EapDecode(wire []byte) (*EapPacket, error) {
-	if len(wire) < eapHeaderSize {
-		return nil, openapi.ReportError("eap: packet has %d bytes, need at least %d for the header", len(wire), eapHeaderSize)
+	if len(wire) < eapBaseHeaderSize {
+		return nil, openapi.ReportError("eap: packet has %d bytes, need at least %d for the header", len(wire), eapBaseHeaderSize)
 	}
 	declaredLen := int(binary.BigEndian.Uint16(wire[2:4]))
-	if declaredLen < eapHeaderSize {
-		return nil, openapi.ReportError("eap: declared length %d is smaller than the %d-byte header", declaredLen, eapHeaderSize)
+	if declaredLen < eapBaseHeaderSize {
+		return nil, openapi.ReportError("eap: declared length %d is smaller than the %d-byte header", declaredLen, eapBaseHeaderSize)
 	}
 	if declaredLen > len(wire) {
 		return nil, openapi.ReportError("eap: declared length %d exceeds the %d received bytes", declaredLen, len(wire))
 	}
-	return &EapPacket{
+	packet := &EapPacket{
 		Code:       EapCode(wire[0]),
 		Identifier: wire[1],
-		Type:       EapType(wire[4]),
-		TypeData:   wire[eapHeaderSize:declaredLen],
-	}, nil
+	}
+	headerSize := eapBaseHeaderSize
+	if packet.hasType() {
+		headerSize++
+		if declaredLen < headerSize {
+			return nil, openapi.ReportError("eap: declared length %d is smaller than the %d-byte header for Request/Response packets", declaredLen, headerSize)
+		}
+		packet.Type = EapType(wire[4])
+	}
+	packet.TypeData = wire[headerSize:declaredLen]
+	return packet, nil
 }

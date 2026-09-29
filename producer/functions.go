@@ -278,12 +278,10 @@ func ConstructFailEapAkaNotification(oldPktId uint8) string {
 	return base64.StdEncoding.EncodeToString(eapPktEncode)
 }
 
+// ConstructEapNoTypePkt builds a Success/Failure EAP packet, which per RFC 3748 Section 4 has no Type byte.
 func ConstructEapNoTypePkt(code EapCode, pktID uint8) string {
-	b := make([]byte, 4)
-	b[0] = byte(code)
-	b[1] = pktID
-	binary.BigEndian.PutUint16(b[2:4], uint16(4))
-	return base64.StdEncoding.EncodeToString(b)
+	eapPkt := EapPacket{Code: code, Identifier: pktID}
+	return base64.StdEncoding.EncodeToString(eapPkt.Encode())
 }
 
 func GetUdmUrl(nrfUri string) string {
