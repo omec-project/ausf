@@ -14,7 +14,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/bronze1man/radius"
 	ausf_context "github.com/omec-project/ausf/context"
 	"github.com/omec-project/ausf/logger"
 	stats "github.com/omec-project/ausf/metrics"
@@ -30,24 +29,6 @@ const (
 	SERVING_NETWORK_NOT_AUTHORIZED_ERROR = "SERVING_NETWORK_NOT_AUTHORIZED"
 	AV_GENERATION_PROBLEM_ERROR          = "AV_GENERATION_PROBLEM"
 )
-
-// EAP constants
-const (
-	EAPCodeRequest  = 1
-	EAPCodeResponse = 2
-	EAPCodeSuccess  = 3
-	EAPCodeFailure  = 4
-)
-
-// Simple EAP packet structure
-type EAPPacket struct {
-	Code       uint8
-	Identifier uint8
-	Length     uint16
-	Type       uint8
-	TypeData   []byte
-	Contents   []byte
-}
 
 // Generates a random int between 0 and 255
 func GenerateRandomNumber() (uint8, error) {
@@ -348,14 +329,14 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 			ausfUeContext.Kseaf = hex.EncodeToString(Kseaf)
 		}
 
-		var eapPkt radius.EapPacket
+		var eapPkt EapPacket
 		randIdentifier, err := GenerateRandomNumber()
 		if err != nil {
 			logger.Auth5gAkaComfirmLog.Warnf("generate random number failed: %+v", err)
 		}
 		eapPkt.Identifier = randIdentifier
-		eapPkt.Code = radius.EapCode(1)
-		eapPkt.Type = radius.EapType(50) // according to RFC5448 6.1
+		eapPkt.Code = EapCodeForRequest
+		eapPkt.Type = EapTypeEapAkaPrime
 		var atRand, atAutn, atKdf, atKdfInput, atMAC string
 		if atRandTmp, err := EapEncodeAttribute("AT_RAND", RAND); err != nil {
 			logger.Auth5gAkaComfirmLog.Warnf("EAP encode RAND failed: %+v", err)
@@ -384,7 +365,7 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 		}
 
 		dataArrayBeforeMAC := atRand + atAutn + atMAC + atKdf + atKdfInput
-		eapPkt.Data = []byte(dataArrayBeforeMAC)
+		eapPkt.TypeData = []byte(dataArrayBeforeMAC)
 		encodedPktBeforeMAC := eapPkt.Encode()
 
 		MACvalue := CalculateAtMAC([]byte(K_aut), encodedPktBeforeMAC)
@@ -400,7 +381,7 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 		atMAC = string(wholeAtMAC)
 		dataArrayAfterMAC := atRand + atAutn + atMAC + atKdf + atKdfInput
 
-		eapPkt.Data = []byte(dataArrayAfterMAC)
+		eapPkt.TypeData = []byte(dataArrayAfterMAC)
 		encodedPktAfterMAC := eapPkt.Encode()
 		uEAuthenticationCtx5gAuthData := models.UEAuthenticationCtx5gAuthData{
 			String: openapi.PtrString(base64.StdEncoding.EncodeToString(encodedPktAfterMAC)),
@@ -502,13 +483,13 @@ func EapAuthComfirmRequestProcedure(updateEapSession models.EapSession, eapSessi
 		eapPayload = eapPayloadTmp
 	}
 
-	eapContent, err := parseEAPPacket(eapPayload)
+	eapContent, err := EapDecode(eapPayload)
 	if err != nil {
 		logger.EapAuthComfirmLog.Warnf("EAP packet parsing failed: %+v", err)
 		return nil, utils.ProblemDetailsWithCause("EAP packet parse error", http.StatusBadRequest, "", "EAP_PACKET_PARSE_ERROR")
 	}
 
-	if eapContent.Code != EAPCodeResponse {
+	if eapContent.Code != EapCodeForResponse {
 		logConfirmFailureAndInformUDM(eapSessionID, models.AUTHTYPE_EAP_AKA_PRIME, servingNetworkName,
 			"eap packet code error", ausfCurrentContext.UdmUeauUrl)
 		ausfCurrentContext.AuthStatus = models.AUTHRESULT_AUTHENTICATION_FAILURE
@@ -523,7 +504,7 @@ func EapAuthComfirmRequestProcedure(updateEapSession models.EapSession, eapSessi
 		responseBody.SetSupi(currentSupi)
 		Kautn := ausfCurrentContext.K_aut
 		XRES := ausfCurrentContext.XRES
-		RES, decodeOK := decodeResMac(eapContent.TypeData, eapContent.Contents, Kautn)
+		RES, decodeOK := decodeResMac(eapContent.TypeData, eapPayload, Kautn)
 		if !decodeOK {
 			ausfCurrentContext.AuthStatus = models.AUTHRESULT_AUTHENTICATION_FAILURE
 			responseBody.SetAuthResult(models.AUTHRESULT_AUTHENTICATION_ONGOING)
@@ -534,7 +515,7 @@ func EapAuthComfirmRequestProcedure(updateEapSession models.EapSession, eapSessi
 		} else if XRES == string(RES) { // decodeOK && XRES == res, auth success
 			logger.EapAuthComfirmLog.Infoln("correct RES value, EAP-AKA' auth succeed")
 			responseBody.SetAuthResult(models.AUTHRESULT_AUTHENTICATION_SUCCESS)
-			eapSuccPkt := ConstructEapNoTypePkt(radius.EapCodeSuccess, eapContent.Identifier)
+			eapSuccPkt := ConstructEapNoTypePkt(EapCodeForSuccess, eapContent.Identifier)
 			responseBody.SetEapPayload(eapSuccPkt)
 			udmUrl := ausfCurrentContext.UdmUeauUrl
 			if sendErr := sendAuthResultToUDM(eapSessionID, models.AUTHTYPE_EAP_AKA_PRIME, true, servingNetworkName,
@@ -553,46 +534,10 @@ func EapAuthComfirmRequestProcedure(updateEapSession models.EapSession, eapSessi
 		}
 
 	case models.AUTHRESULT_AUTHENTICATION_FAILURE:
-		eapFailPkt := ConstructEapNoTypePkt(radius.EapCodeFailure, eapPayload[1])
+		eapFailPkt := ConstructEapNoTypePkt(EapCodeForFailure, eapPayload[1])
 		responseBody.SetEapPayload(eapFailPkt)
 		responseBody.SetAuthResult(models.AUTHRESULT_AUTHENTICATION_FAILURE)
 	}
 
 	return responseBody, nil
-}
-
-// parseEAPPacket parses raw EAP payload into EAPPacket struct
-func parseEAPPacket(payload []byte) (*EAPPacket, error) {
-	if len(payload) < 4 {
-		return nil, fmt.Errorf("EAP packet too short: %d bytes", len(payload))
-	}
-
-	packet := &EAPPacket{
-		Code:       payload[0],
-		Identifier: payload[1],
-		Length:     uint16(payload[2])<<8 | uint16(payload[3]),
-		Contents:   payload,
-	}
-
-	// Validate that the Length field matches the actual payload length
-	if int(packet.Length) > len(payload) {
-		return nil, fmt.Errorf("EAP packet Length field (%d) exceeds actual payload length (%d)",
-			packet.Length, len(payload))
-	}
-
-	// Additional validation: Length should be at least 4 (header size)
-	if packet.Length < 4 {
-		return nil, fmt.Errorf("EAP packet Length field (%d) is less than minimum header size (4)",
-			packet.Length)
-	}
-
-	// For Request and Response packets, extract Type and TypeData
-	if (packet.Code == EAPCodeRequest || packet.Code == EAPCodeResponse) && len(payload) > 4 {
-		packet.Type = payload[4]
-		if len(payload) > 5 {
-			packet.TypeData = payload[5:]
-		}
-	}
-
-	return packet, nil
 }

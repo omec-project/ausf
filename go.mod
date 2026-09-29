@@ -3,7 +3,6 @@ module github.com/omec-project/ausf
 go 1.26.0
 
 require (
-	github.com/bronze1man/radius v0.0.0-20190516032554-afd8baec892d
 	github.com/gin-gonic/gin v1.12.0
 	github.com/google/uuid v1.6.0
 	github.com/omec-project/openapi/v2 v2.2.4

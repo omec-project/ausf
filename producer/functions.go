@@ -19,10 +19,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bronze1man/radius"
 	"github.com/omec-project/ausf/consumer"
 	ausf_context "github.com/omec-project/ausf/context"
 	"github.com/omec-project/ausf/logger"
+	"github.com/omec-project/openapi/v2"
 	"github.com/omec-project/openapi/v2/Nnrf_NFDiscovery"
 	"github.com/omec-project/openapi/v2/Nudm_UEAU"
 	"github.com/omec-project/openapi/v2/models"
@@ -89,7 +89,7 @@ func EapEncodeAttribute(attributeType string, data string) (string, error) {
 	case "AT_RAND":
 		length = len(data)/8 + 1
 		if length != 5 {
-			return "", fmt.Errorf("[eapEncodeAttribute] AT_RAND Length Error")
+			return "", openapi.ReportError("[eapEncodeAttribute] AT_RAND Length Error")
 		}
 		attrNum := fmt.Sprintf("%02x", ausf_context.AT_RAND_ATTRIBUTE)
 		attribute = attrNum + "05" + "0000" + data
@@ -97,7 +97,7 @@ func EapEncodeAttribute(attributeType string, data string) (string, error) {
 	case "AT_AUTN":
 		length = len(data)/8 + 1
 		if length != 5 {
-			return "", fmt.Errorf("[eapEncodeAttribute] AT_AUTN Length Error")
+			return "", openapi.ReportError("[eapEncodeAttribute] AT_AUTN Length Error")
 		}
 		attrNum := fmt.Sprintf("%02x", ausf_context.AT_AUTN_ATTRIBUTE)
 		attribute = attrNum + "05" + "0000" + data
@@ -198,14 +198,15 @@ func eapAkaPrimePrf(ikPrime string, ckPrime string, identity string) (string, st
 }
 
 func checkMACintegrity(offset int, expectedMacValue []byte, packet []byte, Kautn string) bool {
-	eapDecode, decodeErr := radius.EapDecode(packet)
+	eapDecode, decodeErr := EapDecode(packet)
 	if decodeErr != nil {
 		logger.EapAuthComfirmLog.Infoln(decodeErr.Error())
+		return false
 	}
 	if zeroBytes, err := hex.DecodeString("00000000000000000000000000000000"); err != nil {
 		logger.EapAuthComfirmLog.Warnf("Decode error: %+v", err)
 	} else {
-		copy(eapDecode.Data[offset+4:offset+20], zeroBytes)
+		copy(eapDecode.TypeData[offset+4:offset+20], zeroBytes)
 	}
 	encodeAfter := eapDecode.Encode()
 	MACvalue := CalculateAtMAC([]byte(Kautn), encodeAfter)
@@ -260,10 +261,10 @@ func decodeResMac(packetData []byte, wholePacket []byte, Kautn string) ([]byte, 
 }
 
 func ConstructFailEapAkaNotification(oldPktId uint8) string {
-	var eapPkt radius.EapPacket
-	eapPkt.Code = radius.EapCodeRequest
+	var eapPkt EapPacket
+	eapPkt.Code = EapCodeForRequest
 	eapPkt.Identifier = oldPktId + 1
-	eapPkt.Type = ausf_context.EAP_AKA_PRIME_TYPENUM
+	eapPkt.Type = EapTypeEapAkaPrime
 	attrNum := fmt.Sprintf("%02x", ausf_context.AT_NOTIFICATION_ATTRIBUTE)
 	attribute := attrNum + "01" + "4000"
 	var attrHex []byte
@@ -272,17 +273,15 @@ func ConstructFailEapAkaNotification(oldPktId uint8) string {
 	} else {
 		attrHex = attrHexTmp
 	}
-	eapPkt.Data = attrHex
+	eapPkt.TypeData = attrHex
 	eapPktEncode := eapPkt.Encode()
 	return base64.StdEncoding.EncodeToString(eapPktEncode)
 }
 
-func ConstructEapNoTypePkt(code radius.EapCode, pktID uint8) string {
-	b := make([]byte, 4)
-	b[0] = byte(code)
-	b[1] = pktID
-	binary.BigEndian.PutUint16(b[2:4], uint16(4))
-	return base64.StdEncoding.EncodeToString(b)
+// ConstructEapNoTypePkt builds a Success/Failure EAP packet, which per RFC 3748 Section 4 has no Type byte.
+func ConstructEapNoTypePkt(code EapCode, pktID uint8) string {
+	eapPkt := EapPacket{Code: code, Identifier: pktID}
+	return base64.StdEncoding.EncodeToString(eapPkt.Encode())
 }
 
 func GetUdmUrl(nrfUri string) string {
