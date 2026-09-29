@@ -59,10 +59,6 @@ type SuciSupiMap struct {
 	Supi       string
 }
 
-const (
-	EAP_AKA_PRIME_TYPENUM = 50
-)
-
 // Attribute Types for EAP-AKA'
 const (
 	AT_RAND_ATTRIBUTE         = 1
