@@ -10,11 +10,11 @@
 package factory
 
 import (
-	"fmt"
 	"net/url"
 	"os"
 
 	"github.com/omec-project/ausf/logger"
+	"github.com/omec-project/openapi/v2"
 	"go.yaml.in/yaml/v4"
 )
 
@@ -46,7 +46,7 @@ func CheckConfigVersion() error {
 	currentVersion := AusfConfig.GetVersion()
 
 	if currentVersion != AUSF_EXPECTED_CONFIG_VERSION {
-		return fmt.Errorf("config version is [%s], but expected is [%s]",
+		return openapi.ReportError("config version is [%s], but expected is [%s]",
 			currentVersion, AUSF_EXPECTED_CONFIG_VERSION)
 	}
 	logger.CfgLog.Infof("config version [%s]", currentVersion)
@@ -60,10 +60,10 @@ func validateWebuiUri(uri string) error {
 		return err
 	}
 	if parsedUrl.Scheme != "http" && parsedUrl.Scheme != "https" {
-		return fmt.Errorf("unsupported scheme for webuiUri: %s", parsedUrl.Scheme)
+		return openapi.ReportError("unsupported scheme for webuiUri: %s", parsedUrl.Scheme)
 	}
 	if parsedUrl.Hostname() == "" {
-		return fmt.Errorf("missing host in webuiUri")
+		return openapi.ReportError("missing host in webuiUri")
 	}
 	return nil
 }

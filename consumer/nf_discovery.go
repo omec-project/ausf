@@ -60,14 +60,14 @@ func executeSearchNFInstancesRequest(
 ) (result *models.SearchResult, returnErr error) {
 	result, res, returnErr := StoreApiSearchNFInstances(request.ApiService.(*Nnrf_NFDiscovery.NFInstancesStoreAPIService), request)
 	if res != nil && res.StatusCode == http.StatusTemporaryRedirect {
-		returnErr = fmt.Errorf("temporary redirect for non NRF consumer")
+		returnErr = openapi.ReportError("temporary redirect for non NRF consumer")
 	}
 	defer func() {
 		if res == nil || res.Body == nil {
 			return
 		}
 		if bodyCloseErr := res.Body.Close(); bodyCloseErr != nil && returnErr == nil {
-			returnErr = fmt.Errorf("SearchNFInstances' response body cannot close: %+w", bodyCloseErr)
+			returnErr = openapi.ReportError("SearchNFInstances' response body cannot close: %+w", bodyCloseErr)
 		}
 	}()
 	if result == nil {
@@ -87,32 +87,30 @@ func executeSearchNFInstancesRequest(
 			}
 			ausfSelf.NfStatusSubscriptions.Delete(nfInstanceID)
 		}
-		{
-			nrfSubscriptionData := models.SubscriptionData{
-				NfStatusNotificationUri: fmt.Sprintf("%s/nausf-callback/v1/nf-status-notify", ausfSelf.GetIPv4Uri()),
-				SubscrCond: &models.SubscrCond{
-					NfInstanceIdCond: &models.NfInstanceIdCond{
-						NfInstanceId: openapi.PtrString(nfInstanceID),
-					},
+		nrfSubscriptionData := models.SubscriptionData{
+			NfStatusNotificationUri: fmt.Sprintf("%s/nausf-callback/v1/nf-status-notify", ausfSelf.GetIPv4Uri()),
+			SubscrCond: &models.SubscrCond{
+				NfInstanceIdCond: &models.NfInstanceIdCond{
+					NfInstanceId: new(nfInstanceID),
 				},
-				ReqNfType: &requestNfType,
+			},
+			ReqNfType: &requestNfType,
+		}
+		nrfSubData, problemDetails, subErr := CreateSubscription(nrfUri, nrfSubscriptionData)
+		if problemDetails != nil {
+			logger.ConsumerLog.Errorf("SendCreateSubscription to NRF, Problem[%+v]", problemDetails)
+			ausfSelf.NfStatusSubscriptions.Delete(nfInstanceID)
+			if returnErr == nil && subErr != nil {
+				returnErr = subErr
 			}
-			nrfSubData, problemDetails, subErr := CreateSubscription(nrfUri, nrfSubscriptionData)
-			if problemDetails != nil {
-				logger.ConsumerLog.Errorf("SendCreateSubscription to NRF, Problem[%+v]", problemDetails)
-				ausfSelf.NfStatusSubscriptions.Delete(nfInstanceID)
-				if returnErr == nil && subErr != nil {
-					returnErr = subErr
-				}
-			} else if subErr != nil {
-				logger.ConsumerLog.Errorf("SendCreateSubscription Error[%+v]", subErr)
-				ausfSelf.NfStatusSubscriptions.Delete(nfInstanceID)
-				if returnErr == nil {
-					returnErr = subErr
-				}
-			} else if nrfSubData != nil {
-				ausfSelf.NfStatusSubscriptions.Store(nfInstanceID, nrfSubData.GetSubscriptionId())
+		} else if subErr != nil {
+			logger.ConsumerLog.Errorf("SendCreateSubscription Error[%+v]", subErr)
+			ausfSelf.NfStatusSubscriptions.Delete(nfInstanceID)
+			if returnErr == nil {
+				returnErr = subErr
 			}
+		} else if nrfSubData != nil {
+			ausfSelf.NfStatusSubscriptions.Store(nfInstanceID, nrfSubData.GetSubscriptionId())
 		}
 	}
 
