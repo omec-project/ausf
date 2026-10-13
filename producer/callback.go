@@ -28,9 +28,8 @@ func HandleNfSubscriptionStatusNotify(request *httpwrapper.Request) *httpwrapper
 	problemDetails := NfSubscriptionStatusNotifyProcedure(notificationData)
 	if problemDetails != nil {
 		return httpwrapper.NewResponse(int(problemDetails.GetStatus()), nil, problemDetails)
-	} else {
-		return httpwrapper.NewResponse(http.StatusNoContent, nil, nil)
 	}
+	return httpwrapper.NewResponse(http.StatusNoContent, nil, nil)
 }
 
 func NfSubscriptionStatusNotifyProcedure(notificationData models.NotificationData) *models.ProblemDetails {

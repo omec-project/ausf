@@ -183,18 +183,10 @@ var SendCreateSubscription = func(nrfUri string, nrfSubscriptionData models.Subs
 	}
 
 	if res != nil {
-		if res.Status != err.Error() {
-			logger.ConsumerLog.Errorf("SendCreateSubscription received error response: %v", res.Status)
-			return nil, nil, err
+		if problem, ok := openapi.ErrorModel[models.ProblemDetails](err); ok {
+			return nil, &problem, err
 		}
-
-		if genericErr, ok := err.(openapi.GenericOpenAPIError); ok {
-			if model := genericErr.Model(); model != nil {
-				if problem, ok := model.(models.ProblemDetails); ok {
-					return nil, &problem, err
-				}
-			}
-		}
+		logger.ConsumerLog.Errorf("SendCreateSubscription received error response: %v", res.Status)
 		return nil, nil, err
 	}
 
@@ -226,17 +218,8 @@ var SendRemoveSubscription = func(subscriptionId string) (problemDetails *models
 	}
 
 	if res != nil {
-		if res.Status != err.Error() {
-			return nil, err
-		}
-
-		// Safe type assertion with error handling
-		if genericErr, ok := err.(openapi.GenericOpenAPIError); ok {
-			if model := genericErr.Model(); model != nil {
-				if problem, ok := model.(models.ProblemDetails); ok {
-					return &problem, err
-				}
-			}
+		if problem, ok := openapi.ErrorModel[models.ProblemDetails](err); ok {
+			return &problem, err
 		}
 		return nil, err
 	}

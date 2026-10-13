@@ -24,7 +24,6 @@ import (
 	"github.com/omec-project/ausf/factory"
 	"github.com/omec-project/ausf/producer"
 	"github.com/omec-project/ausf/service"
-	"github.com/omec-project/openapi/v2"
 	"github.com/omec-project/openapi/v2/Nnrf_NFDiscovery"
 	"github.com/omec-project/openapi/v2/models"
 	"github.com/omec-project/openapi/v2/utils"
@@ -186,8 +185,8 @@ func TestGetUDMUri_SkipsInstancesWithoutUsableEndpoints(t *testing.T) {
 				ServiceName: models.SERVICENAME_NUDM_UEAU,
 				Scheme:      models.URISCHEME_HTTPS,
 				IpEndPoints: []models.IpEndPoint{{
-					Ipv4Address: openapi.PtrString("20.20.13.1"),
-					Port:        openapi.PtrInt32(8090),
+					Ipv4Address: new("20.20.13.1"),
+					Port:        new(int32(8090)),
 				}},
 			}},
 		}

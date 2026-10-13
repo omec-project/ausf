@@ -98,8 +98,8 @@ func AddNfServices(serviceMap *map[models.ServiceName]models.NFService, config *
 	services := *serviceMap
 
 	// nausf-auth
-	nfService.ServiceInstanceId = context.NfId
-	nfService.ServiceName = models.SERVICENAME_NAUSF_AUTH
+	nfService.SetServiceInstanceId(context.NfId)
+	nfService.SetServiceName(models.SERVICENAME_NAUSF_AUTH)
 	ipEndPoint := models.NewIpEndPoint()
 	ipEndPoint.SetIpv4Address(context.RegisterIPv4)
 	ipEndPoint.SetPort(int32(context.SBIPort))
@@ -107,14 +107,14 @@ func AddNfServices(serviceMap *map[models.ServiceName]models.NFService, config *
 	ipEndPoints = append(ipEndPoints, *ipEndPoint)
 
 	var nfServiceVersion models.NFServiceVersion
-	nfServiceVersion.ApiFullVersion = config.Info.Version
-	nfServiceVersion.ApiVersionInUri = "v1"
+	nfServiceVersion.SetApiFullVersion(config.Info.Version)
+	nfServiceVersion.SetApiVersionInUri("v1")
 	nfServiceVersions = append(nfServiceVersions, nfServiceVersion)
 
-	nfService.Scheme = context.UriScheme
-	nfService.NfServiceStatus = models.NFSERVICESTATUS_REGISTERED
+	nfService.SetScheme(context.UriScheme)
+	nfService.SetNfServiceStatus(models.NFSERVICESTATUS_REGISTERED)
 
-	nfService.IpEndPoints = ipEndPoints
-	nfService.Versions = nfServiceVersions
+	nfService.SetIpEndPoints(ipEndPoints)
+	nfService.SetVersions(nfServiceVersions)
 	services[models.SERVICENAME_NAUSF_AUTH] = nfService
 }

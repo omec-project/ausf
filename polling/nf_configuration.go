@@ -8,7 +8,6 @@ package polling
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"reflect"
@@ -16,6 +15,7 @@ import (
 	"time"
 
 	"github.com/omec-project/ausf/logger"
+	"github.com/omec-project/openapi/v2"
 	"github.com/omec-project/openapi/v2/models"
 )
 
@@ -51,7 +51,7 @@ func StartPollingService(ctx context.Context, webuiUri string, plmnConfigChan ch
 		case <-time.After(interval):
 			newPlmnConfig, err := fetchPlmnConfig(&poller, pollingEndpoint)
 			if err != nil {
-				interval = minDuration(interval*time.Duration(pollingBackoffFactor), pollingMaxBackoff)
+				interval = min(interval*pollingBackoffFactor, pollingMaxBackoff)
 				logger.PollConfigLog.Errorf("Polling error. Retrying in %v: %+v", interval, err)
 				continue
 			}
@@ -71,38 +71,38 @@ func (p *nfConfigPoller) fetchPlmnConfig(pollingEndpoint string) ([]models.PlmnI
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, pollingEndpoint, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
+		return nil, openapi.ReportError("failed to create HTTP request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := p.client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("HTTP GET %v failed: %w", pollingEndpoint, err)
+		return nil, openapi.ReportError("HTTP GET %v failed: %w", pollingEndpoint, err)
 	}
 	defer resp.Body.Close()
 
 	contentType := resp.Header.Get("Content-Type")
 	if !strings.Contains(contentType, "application/json") {
-		return nil, fmt.Errorf("unexpected Content-Type: got %s, want application/json", contentType)
+		return nil, openapi.ReportError("unexpected Content-Type: got %s, want application/json", contentType)
 	}
 
 	switch resp.StatusCode {
 	case http.StatusOK:
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read response body: %w", err)
+			return nil, openapi.ReportError("failed to read response body: %w", err)
 		}
 
 		var config []models.PlmnId
 		if err := json.Unmarshal(body, &config); err != nil {
-			return nil, fmt.Errorf("failed to parse JSON response: %w", err)
+			return nil, openapi.ReportError("failed to parse JSON response: %w", err)
 		}
 		return config, nil
 
 	case http.StatusBadRequest, http.StatusInternalServerError:
-		return nil, fmt.Errorf("server returned %d error code", resp.StatusCode)
+		return nil, openapi.ReportError("server returned %d error code", resp.StatusCode)
 	default:
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		return nil, openapi.ReportError("unexpected status code: %d", resp.StatusCode)
 	}
 }
 
@@ -114,11 +114,4 @@ func (p *nfConfigPoller) handlePolledPlmnConfig(newPlmnConfig []models.PlmnId) {
 	p.currentPlmnConfig = newPlmnConfig
 	logger.PollConfigLog.Infof("PLMN config changed. New PLMN ID list: %+v", p.currentPlmnConfig)
 	p.plmnConfigChan <- p.currentPlmnConfig
-}
-
-func minDuration(a, b time.Duration) time.Duration {
-	if a < b {
-		return a
-	}
-	return b
 }
