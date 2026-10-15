@@ -53,6 +53,18 @@ func buildSearchNFInstancesRequest(
 	return request
 }
 
+func buildSubscriptionData(
+	ausfSelf *ausfContext.AUSFContext, nfInstanceID string, requestNfType models.NFType,
+) *models.SubscriptionData {
+	nfInstanceIdCond := models.NewNfInstanceIdCond()
+	nfInstanceIdCond.SetNfInstanceId(nfInstanceID)
+	subscriptionData := models.NewSubscriptionData(
+		fmt.Sprintf("%s/nausf-callback/v1/nf-status-notify", ausfSelf.GetIPv4Uri()))
+	subscriptionData.SetSubscrCond(models.NfInstanceIdCondAsSubscrCond(nfInstanceIdCond))
+	subscriptionData.SetReqNfType(requestNfType)
+	return subscriptionData
+}
+
 func executeSearchNFInstancesRequest(
 	nrfUri string,
 	requestNfType models.NFType,
@@ -79,7 +91,7 @@ func executeSearchNFInstancesRequest(
 
 	ausfSelf := ausfContext.GetSelf()
 
-	for _, nfProfile := range result.NfInstances {
+	for _, nfProfile := range result.GetNfInstances() {
 		nfInstanceID := nfProfile.GetNfInstanceId()
 		if subscriptionID, ok := ausfSelf.NfStatusSubscriptions.Load(nfInstanceID); ok {
 			if subscriptionIDStr, ok := subscriptionID.(string); ok && subscriptionIDStr != "" {
@@ -87,16 +99,8 @@ func executeSearchNFInstancesRequest(
 			}
 			ausfSelf.NfStatusSubscriptions.Delete(nfInstanceID)
 		}
-		nrfSubscriptionData := models.SubscriptionData{
-			NfStatusNotificationUri: fmt.Sprintf("%s/nausf-callback/v1/nf-status-notify", ausfSelf.GetIPv4Uri()),
-			SubscrCond: &models.SubscrCond{
-				NfInstanceIdCond: &models.NfInstanceIdCond{
-					NfInstanceId: new(nfInstanceID),
-				},
-			},
-			ReqNfType: &requestNfType,
-		}
-		nrfSubData, problemDetails, subErr := CreateSubscription(nrfUri, nrfSubscriptionData)
+		nrfSubscriptionData := buildSubscriptionData(ausfSelf, nfInstanceID, requestNfType)
+		nrfSubData, problemDetails, subErr := CreateSubscription(nrfUri, *nrfSubscriptionData)
 		if problemDetails != nil {
 			logger.ConsumerLog.Errorf("SendCreateSubscription to NRF, Problem[%+v]", problemDetails)
 			ausfSelf.NfStatusSubscriptions.Delete(nfInstanceID)
