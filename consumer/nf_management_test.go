@@ -10,6 +10,8 @@ import (
 	"github.com/omec-project/openapi/v2/models"
 )
 
+const testRegisterIPv4 = "127.0.0.1"
+
 func TestGetNfProfile_WhenContextIsNil_ThenReturnsError(t *testing.T) {
 	_, err := getNfProfile(nil, nil)
 	if err == nil {
@@ -26,7 +28,7 @@ func TestGetNfProfile_WhenNfServicesArePresent_ThenNfServiceListIsKeyedByService
 	}
 	context := &ausfctx.AUSFContext{
 		NfId:         "test-nf-id",
-		RegisterIPv4: "127.0.0.1",
+		RegisterIPv4: testRegisterIPv4,
 		NfService: map[models.ServiceName]models.NFService{
 			models.SERVICENAME_NAUSF_AUTH: nfService,
 		},
@@ -59,7 +61,7 @@ func TestGetNfProfile_WhenNfServicesArePresent_ThenNfServiceListIsKeyedByService
 func TestGetNfProfile_WhenNoNfServices_ThenNfServiceListIsNotSet(t *testing.T) {
 	context := &ausfctx.AUSFContext{
 		NfId:         "test-nf-id",
-		RegisterIPv4: "127.0.0.1",
+		RegisterIPv4: testRegisterIPv4,
 	}
 
 	profile, err := getNfProfile(context, nil)

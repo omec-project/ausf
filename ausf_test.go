@@ -52,6 +52,12 @@ func setupTest() {
 	}
 }
 
+func newUdmInfoWithEmptyRoutingIndicators() *models.UdmInfo {
+	udmInfo := models.NewUdmInfo()
+	udmInfo.SetRoutingIndicators([]string{})
+	return udmInfo
+}
+
 func TestGetUDMUri(t *testing.T) {
 	t.Logf("test cases for Get UDM URI")
 	callCountSearchNFInstances := 0
@@ -207,10 +213,9 @@ func TestGetUDMUri_SkipsInstancesWithoutUsableEndpoints(t *testing.T) {
 
 func TestCreateSubscriptionSuccess(t *testing.T) {
 	t.Logf("test cases for CreateSubscription")
+	udmInfo := newUdmInfoWithEmptyRoutingIndicators()
 	udmProfile := models.NFProfileDiscovery{
-		UdmInfo: &models.UdmInfo{
-			RoutingIndicators: []string{},
-		},
+		UdmInfo:      udmInfo,
 		NfInstanceId: nfInstanceID,
 		NfType:       nfTypeUDM,
 		NfStatus:     "REGISTERED",
@@ -324,10 +329,10 @@ func TestSendNfDiscoveryToNrf_WhenSearchResultIsNil_ReturnsError(t *testing.T) {
 
 func TestCreateSubscriptionFail(t *testing.T) {
 	t.Logf("test cases for CreateSubscription")
+	udmInfo := newUdmInfoWithEmptyRoutingIndicators()
+
 	udmProfile := models.NFProfileDiscovery{
-		UdmInfo: &models.UdmInfo{
-			RoutingIndicators: []string{},
-		},
+		UdmInfo:      udmInfo,
 		NfInstanceId: "84343-4343-43-434-343",
 		NfType:       nfTypeUDM,
 		NfStatus:     "REGISTERED",
@@ -488,10 +493,10 @@ func TestNfSubscriptionStatusNotify(t *testing.T) {
 		callCountNRFCacheRemoveNfProfileFromNrfCache++
 		return true
 	}
+	udmInfo := newUdmInfoWithEmptyRoutingIndicators()
+
 	udmProfile := models.NotificationDataAllOfNfProfile{
-		UdmInfo: &models.UdmInfo{
-			RoutingIndicators: []string{},
-		},
+		UdmInfo:      udmInfo,
 		NfInstanceId: nfInstanceID,
 		NfType:       nfTypeUDM,
 		NfStatus:     "DEREGISTERED",
