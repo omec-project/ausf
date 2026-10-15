@@ -39,6 +39,8 @@ func startPollingServiceForTest(t *testing.T, ch chan<- []models.PlmnId) (contex
 
 func TestStartPollingService_Success(t *testing.T) {
 	originalFetchPlmnConfig := fetchPlmnConfig
+	originalInterval := initialPollingInterval
+	initialPollingInterval = 20 * time.Millisecond
 
 	expectedConfig := []models.PlmnId{{Mcc: "001", Mnc: "01"}}
 	fetchPlmnConfig = func(poller *nfConfigPoller, pollingEndpoint string) ([]models.PlmnId, error) {
@@ -50,6 +52,7 @@ func TestStartPollingService_Success(t *testing.T) {
 		cancel()
 		<-done
 		fetchPlmnConfig = originalFetchPlmnConfig
+		initialPollingInterval = originalInterval
 	}()
 
 	time.Sleep(initialPollingInterval)
@@ -66,6 +69,8 @@ func TestStartPollingService_Success(t *testing.T) {
 
 func TestStartPollingService_RetryAfterFailure(t *testing.T) {
 	originalFetchPlmnConfig := fetchPlmnConfig
+	originalInterval := initialPollingInterval
+	initialPollingInterval = 20 * time.Millisecond
 
 	var callCount atomic.Int32
 	fetchPlmnConfig = func(poller *nfConfigPoller, pollingEndpoint string) ([]models.PlmnId, error) {
@@ -76,6 +81,7 @@ func TestStartPollingService_RetryAfterFailure(t *testing.T) {
 	cancel, done := startPollingServiceForTest(t, plmnChan)
 	defer func() {
 		fetchPlmnConfig = originalFetchPlmnConfig
+		initialPollingInterval = originalInterval
 	}()
 
 	time.Sleep(4 * initialPollingInterval)

@@ -19,11 +19,14 @@ import (
 	"github.com/omec-project/openapi/v2/models"
 )
 
-const (
+var (
 	initialPollingInterval = 5 * time.Second
 	pollingMaxBackoff      = 40 * time.Second
-	pollingBackoffFactor   = 2
-	pollingPath            = "/nfconfig/plmn"
+)
+
+const (
+	pollingBackoffFactor = 2
+	pollingPath          = "/nfconfig/plmn"
 )
 
 type nfConfigPoller struct {
