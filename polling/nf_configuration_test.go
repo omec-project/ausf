@@ -80,17 +80,27 @@ func TestStartPollingService_RetryAfterFailure(t *testing.T) {
 	plmnChan := make(chan []models.PlmnId, 1)
 	cancel, done := startPollingServiceForTest(t, plmnChan)
 	defer func() {
+		cancel()
+		<-done
 		fetchPlmnConfig = originalFetchPlmnConfig
 		initialPollingInterval = originalInterval
 	}()
 
-	time.Sleep(4 * initialPollingInterval)
-	cancel()
-	<-done
-
-	if callCount.Load() < 2 {
-		t.Error("Expected to retry after failure")
+	deadline := time.After(2 * time.Second)
+	ticker := time.NewTicker(time.Millisecond)
+	defer ticker.Stop()
+waitForRetry:
+	for {
+		select {
+		case <-ticker.C:
+			if callCount.Load() >= 2 {
+				break waitForRetry
+			}
+		case <-deadline:
+			t.Fatal("Timed out waiting for retry after failure")
+		}
 	}
+
 	t.Logf("Tried %v times", callCount.Load())
 }
 
