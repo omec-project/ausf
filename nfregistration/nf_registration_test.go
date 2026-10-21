@@ -190,7 +190,7 @@ func TestNfRegistrationService_WhenConfigChanged_ThenRegisterNFSuccessAndStartTi
 	registered := append([]models.PlmnId(nil), registrations...)
 	registrationMu.Unlock()
 	if !reflect.DeepEqual(registered, newConfig) {
-		t.Errorf("Expected %+v config, received %+v", newConfig, registered)
+		t.Errorf("expected %+v config, received %+v", newConfig, registered)
 	}
 }
 
@@ -274,10 +274,10 @@ func TestNfRegistrationService_ConfigChanged_RetryIfRegisterNFFails(t *testing.T
 
 	waitForCondition(t, retryTime+3*time.Second, func() bool {
 		return called.Load() >= 2
-	}, "Expected to retry register to NRF")
+	}, "expected to retry register to NRF")
 
 	if called.Load() < 2 {
-		t.Error("Expected to retry register to NRF")
+		t.Error("expected to retry register to NRF")
 	}
 	t.Logf("Tried %v times", called.Load())
 }
@@ -339,10 +339,10 @@ func TestNfRegistrationService_WhenConfigChanged_ThenPreviousRegistrationIsCance
 	}
 
 	if !reflect.DeepEqual(firstRegistration.config, firstConfig) {
-		t.Errorf("Expected %+v config, received %+v", firstConfig, firstRegistration.config)
+		t.Errorf("expected %+v config, received %+v", firstConfig, firstRegistration.config)
 	}
 	if !reflect.DeepEqual(secondRegistration.config, secondConfig) {
-		t.Errorf("Expected %+v config, received %+v", secondConfig, secondRegistration.config)
+		t.Errorf("expected %+v config, received %+v", secondConfig, secondRegistration.config)
 	}
 }
 
@@ -480,7 +480,7 @@ func TestStartKeepAliveTimer_UsesProfileTimerOnlyWhenGreaterThanZero(t *testing.
 
 			startKeepAliveTimer(tc.profileTime, nil)
 			if tc.expectedDuration != capturedDuration {
-				t.Errorf("Expected %v duration, got %v", tc.expectedDuration, capturedDuration)
+				t.Errorf("expected %v duration, got %v", tc.expectedDuration, capturedDuration)
 			}
 		})
 	}
