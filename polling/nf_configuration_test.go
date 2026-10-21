@@ -60,7 +60,7 @@ func TestStartPollingService_Success(t *testing.T) {
 	select {
 	case result := <-pollingChan:
 		if !reflect.DeepEqual(result, expectedConfig) {
-			t.Errorf("Expected %+v, got %+v", expectedConfig, result)
+			t.Errorf("expected %+v, got %+v", expectedConfig, result)
 		}
 	case <-time.After(100 * time.Millisecond):
 		t.Errorf("Timeout waiting for PLMN config")
@@ -132,15 +132,15 @@ func TestHandlePolledPlmnConfig_ConfigChanged_ConfigurationIsUpdatedAndSendToCha
 			poller.handlePolledPlmnConfig(tc.newPlmnConfig)
 
 			if !reflect.DeepEqual(poller.currentPlmnConfig, tc.newPlmnConfig) {
-				t.Errorf("Expected PLMN config to be updated to %v, got %v", tc.newPlmnConfig, poller.currentPlmnConfig)
+				t.Errorf("expected PLMN config to be updated to %v, got %v", tc.newPlmnConfig, poller.currentPlmnConfig)
 			}
 			select {
 			case receivedPlmnConfig := <-ch:
 				if !reflect.DeepEqual(receivedPlmnConfig, tc.newPlmnConfig) {
-					t.Errorf("Expected config %v, got %v", tc.newPlmnConfig, receivedPlmnConfig)
+					t.Errorf("expected config %v, got %v", tc.newPlmnConfig, receivedPlmnConfig)
 				}
 			case <-time.After(100 * time.Millisecond):
-				t.Errorf("Expected config to be sent to channel, but it was not")
+				t.Errorf("expected config to be sent to channel, but it was not")
 			}
 		})
 	}
@@ -170,7 +170,7 @@ func TestHandlePolledPlmnConfig_ConfigDidNotChanged_ConfigIsNotSendToChannel(t *
 			poller.handlePolledPlmnConfig(tc.newPlmnConfig)
 
 			if !reflect.DeepEqual(poller.currentPlmnConfig, tc.newPlmnConfig) {
-				t.Errorf("Expected PLMN list to remain unchanged, got %v", poller.currentPlmnConfig)
+				t.Errorf("expected PLMN list to remain unchanged, got %v", poller.currentPlmnConfig)
 			}
 
 			select {
