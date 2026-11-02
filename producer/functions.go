@@ -6,7 +6,6 @@
 package producer
 
 import (
-	"bytes"
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
@@ -26,7 +25,11 @@ import (
 	"github.com/omec-project/openapi/v2/Nnrf_NFDiscovery"
 	"github.com/omec-project/openapi/v2/Nudm_UEAU"
 	"github.com/omec-project/openapi/v2/models"
+	"github.com/omec-project/openapi/v2/utils"
 )
+
+// atMacAttributeSize is the size in bytes of AT_MAC: type, length, 2 reserved bytes and a 16-byte MAC.
+const atMacAttributeSize = 20
 
 var (
 	udmUrlMu    sync.RWMutex // protects AUSFContext.UdmUeauUrl
@@ -53,6 +56,31 @@ var (
 		return client.DeleteAuthAPI.DeleteAuthExecute(apiDeleteAuthRequest)
 	}
 )
+
+// problemDetailsFromUdmAuthError maps a failed Nudm_UEAuthentication_Get call to the ProblemDetails the AUSF returns
+// (TS 29.509 table 6.1.3.2.3.1-3). 400/403/404 from the UDM are propagated with the UDM's cause when present;
+// any other UDM failure means no AV could be generated; no UDM response at all is an upstream failure.
+func problemDetailsFromUdmAuthError(rsp *http.Response, err error) *models.ProblemDetails {
+	if rsp == nil {
+		return utils.ProblemDetailsWithCause("Upstream server error", http.StatusInternalServerError, "", UPSTREAM_SERVER_ERROR)
+	}
+	var defaultCause string
+	switch rsp.StatusCode {
+	case http.StatusBadRequest:
+		defaultCause = utils.CauseInvalidRequest
+	case http.StatusForbidden:
+		defaultCause = utils.CauseAuthenticationRejected
+	case http.StatusNotFound:
+		defaultCause = utils.CauseUserNotFound
+	default:
+		return utils.ProblemDetailsWithCause("AV generation problem", http.StatusInternalServerError, "", AV_GENERATION_PROBLEM_ERROR)
+	}
+	cause := defaultCause
+	if upstream, ok := openapi.ErrorModel[models.ProblemDetails](err); ok && upstream.GetCause() != "" {
+		cause = upstream.GetCause()
+	}
+	return utils.ProblemDetailsWithCause(http.StatusText(rsp.StatusCode), rsp.StatusCode, "", cause)
+}
 
 func intToByteArray(i int) []byte {
 	r := make([]byte, 2)
@@ -203,19 +231,16 @@ func checkMACintegrity(offset int, expectedMacValue []byte, packet []byte, Kautn
 		logger.EapAuthComfirmLog.Infoln(decodeErr.Error())
 		return false
 	}
-	if zeroBytes, err := hex.DecodeString("00000000000000000000000000000000"); err != nil {
-		logger.EapAuthComfirmLog.Warnf("Decode error: %+v", err)
-	} else {
-		copy(eapDecode.TypeData[offset+4:offset+20], zeroBytes)
+	if offset < 0 || offset+atMacAttributeSize > len(eapDecode.TypeData) {
+		logger.EapAuthComfirmLog.Infoln("AT_MAC attribute exceeds EAP packet")
+		return false
 	}
+	// zero the MAC value (bytes 4..20 of the attribute) before recomputing it
+	clear(eapDecode.TypeData[offset+4 : offset+atMacAttributeSize])
 	encodeAfter := eapDecode.Encode()
 	MACvalue := CalculateAtMAC([]byte(Kautn), encodeAfter)
 
-	if bytes.Equal(MACvalue, expectedMacValue) {
-		return true
-	} else {
-		return false
-	}
+	return hmac.Equal(MACvalue, expectedMacValue)
 }
 
 // func decodeResMac(packetData []byte, wholePacket []byte, Kautn string) (RES []byte, success bool) {
@@ -229,21 +254,40 @@ func decodeResMac(packetData []byte, wholePacket []byte, Kautn string) ([]byte, 
 	var RES []byte
 
 	for i := 0; i < len(dataArray); i += attributeLength {
-		attributeLength = int(uint(dataArray[1+i])) * 4
-		attributeType = int(uint(dataArray[0+i]))
+		// every attribute has at least a type and a length byte; the length is in units of 4 bytes
+		// and must be non-zero and within the packet (RFC 4187 section 8.1)
+		if i+2 > len(dataArray) {
+			logger.EapAuthComfirmLog.Infoln("truncated EAP attribute header")
+			return nil, false
+		}
+		attributeLength = int(dataArray[1+i]) * 4
+		attributeType = int(dataArray[0+i])
+		if attributeLength == 0 || i+attributeLength > len(dataArray) {
+			logger.EapAuthComfirmLog.Infof("invalid EAP attribute length %d for type %d", attributeLength, attributeType)
+			return nil, false
+		}
 
 		switch attributeType {
 		case ausf_context.AT_RES_ATTRIBUTE:
 			logger.EapAuthComfirmLog.Infoln("Detect AT_RES attribute")
+			if attributeLength < 4 {
+				logger.EapAuthComfirmLog.Infoln("AT_RES attribute too short")
+				return nil, false
+			}
 			detectRes = true
 			resLength := int(uint(dataArray[3+i]) | uint(dataArray[2+i])<<8)
-			RES = dataArray[4+i : 4+i+attributeLength-4]
-			byteRes := padZeros(RES, resLength)
-			RES = byteRes
+			RES = dataArray[4+i : i+attributeLength]
+			if resLength > len(RES) {
+				RES = padZeros(RES, resLength)
+			}
 		case ausf_context.AT_MAC_ATTRIBUTE:
 			logger.EapAuthComfirmLog.Infoln("Detect AT_MAC attribute")
+			if attributeLength < atMacAttributeSize {
+				logger.EapAuthComfirmLog.Infoln("AT_MAC attribute too short")
+				return nil, false
+			}
 			detectMac = true
-			macStr := string(dataArray[4+i : 20+i])
+			macStr := string(dataArray[4+i : atMacAttributeSize+i])
 			if checkMACintegrity(i, []byte(macStr), wholePacket, Kautn) {
 				logger.EapAuthComfirmLog.Infoln("check MAC integrity succeed")
 				macCorrect = true

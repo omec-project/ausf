@@ -26,6 +26,8 @@ const (
 	UPSTREAM_SERVER_ERROR                = "UPSTREAM_SERVER_ERROR"
 	SERVING_NETWORK_NOT_AUTHORIZED_ERROR = "SERVING_NETWORK_NOT_AUTHORIZED"
 	AV_GENERATION_PROBLEM_ERROR          = "AV_GENERATION_PROBLEM"
+
+	legacyLinkName = "link"
 )
 
 // Generates a random int between 0 and 255
@@ -143,6 +145,9 @@ func DeleteAuthenticationResultProcedure(authCtxID string, authType models.AuthT
 	}
 
 	ausfCurrentContext := ausf_context.GetAusfUeContext(currentSupi)
+	if ausfCurrentContext == nil {
+		return utils.ProblemDetailsUserNotFound()
+	}
 	if err := deleteAuthResultFromUDM(currentSupi, authCtxID, authType, ausfCurrentContext.ServingNetworkName,
 		ausfCurrentContext.UdmUeauUrl); err != nil {
 		return utils.ProblemDetailsWithCause("Upstream server error", http.StatusInternalServerError, "", UPSTREAM_SERVER_ERROR)
@@ -217,6 +222,10 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 		ausfCurrentSupi := ausf_context.GetSupiFromSuciSupiMap(supiOrSuci)
 		logger.UeAuthPostLog.Warnln(ausfCurrentSupi)
 		ausfCurrentContext := ausf_context.GetAusfUeContext(ausfCurrentSupi)
+		if ausfCurrentContext == nil {
+			logger.UeAuthPostLog.Warnln("resynchronization requested for unknown authentication context")
+			return nil, "", utils.ProblemDetailsUserNotFound()
+		}
 		logger.UeAuthPostLog.Warnln(ausfCurrentContext.Rand)
 		updateAuthenticationInfo.ResynchronizationInfo.SetRand(ausfCurrentContext.Rand)
 		logger.UeAuthPostLog.Warnln("Rand:", updateAuthenticationInfo.GetResynchronizationInfo().Rand)
@@ -236,10 +245,11 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 	}()
 	if err != nil {
 		logger.UeAuthPostLog.Infoln(err.Error())
-		if authInfoResult == nil || authInfoResult.AuthenticationVector == nil {
-			return nil, "", utils.ProblemDetailsWithCause("AV generation problem", http.StatusInternalServerError, "", AV_GENERATION_PROBLEM_ERROR)
-		}
-		return nil, "", utils.ProblemDetailsWithCause("Upstream server error", http.StatusInternalServerError, "", UPSTREAM_SERVER_ERROR)
+		return nil, "", problemDetailsFromUdmAuthError(rsp, err)
+	}
+	if authInfoResult == nil {
+		logger.UeAuthPostLog.Warnln("UDM returned an empty authentication info result")
+		return nil, "", utils.ProblemDetailsWithCause("AV generation problem", http.StatusInternalServerError, "", AV_GENERATION_PROBLEM_ERROR)
 	}
 
 	ueid := authInfoResult.GetSupi()
@@ -250,10 +260,18 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 
 	locationURI := self.Url + "/nausf-auth/v1/ue-authentications/" + supiOrSuci
 	putLink := locationURI
+	// _links member name per TS 29.509 clause 6.1.6.2.3
+	linkName := ""
 	switch authInfoResult.GetAuthType() {
 	case models.AUTHTYPE__5_G_AKA:
 		logger.UeAuthPostLog.Infoln("use 5G AKA auth method")
+		linkName = "5g-aka"
 		putLink += "/5g-aka-confirmation"
+
+		if authInfoResult.AuthenticationVector == nil || authInfoResult.AuthenticationVector.Av5GHeAka == nil {
+			logger.UeAuthPostLog.Warnln("UDM returned no 5G HE AKA vector")
+			return nil, "", utils.ProblemDetailsWithCause("AV generation problem", http.StatusInternalServerError, "", AV_GENERATION_PROBLEM_ERROR)
+		}
 
 		// Derive HXRES* from XRES*
 		concat := authInfoResult.AuthenticationVector.Av5GHeAka.GetRand() + authInfoResult.AuthenticationVector.Av5GHeAka.GetXresStar()
@@ -292,7 +310,13 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 		responseBody.SetVar5gAuthData(av5gAkaCtx)
 	case models.AUTHTYPE_EAP_AKA_PRIME:
 		logger.UeAuthPostLog.Infoln("use EAP-AKA' auth method")
+		linkName = "eap-session"
 		putLink += "/eap-session"
+
+		if authInfoResult.AuthenticationVector == nil || authInfoResult.AuthenticationVector.AvEapAkaPrime == nil {
+			logger.UeAuthPostLog.Warnln("UDM returned no EAP-AKA' vector")
+			return nil, "", utils.ProblemDetailsWithCause("AV generation problem", http.StatusInternalServerError, "", AV_GENERATION_PROBLEM_ERROR)
+		}
 
 		identity := ueid
 		ikPrime := authInfoResult.AuthenticationVector.AvEapAkaPrime.GetIkPrime()
@@ -393,7 +417,10 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 		Link: putLinkPtr,
 	}
 	links := make(map[string]models.LinksValueSchema)
-	links["link"] = linksValue
+	links[linkName] = linksValue
+	// "link" is the member name used before the TS 29.509 names were adopted; consumers that still look
+	// it up (e.g. AMFs predating the spec-compliant lookup) keep working
+	links[legacyLinkName] = linksValue
 	responseBody.SetLinks(links)
 	responseBody.SetAuthType(authInfoResult.GetAuthType())
 
@@ -424,6 +451,10 @@ func Auth5gAkaComfirmRequestProcedure(updateConfirmationData models.Confirmation
 	}
 
 	ausfCurrentContext := ausf_context.GetAusfUeContext(currentSupi)
+	if ausfCurrentContext == nil {
+		logger.Auth5gAkaComfirmLog.Infof("SUPI context removed concurrently, confirmation failed (queried by %s)", currentSupi)
+		return nil, utils.ProblemDetailsUserNotFound()
+	}
 	servingNetworkName := ausfCurrentContext.ServingNetworkName
 
 	// Compare the received RES* with the stored XRES*
@@ -469,6 +500,10 @@ func EapAuthComfirmRequestProcedure(updateEapSession models.EapSession, eapSessi
 	}
 
 	ausfCurrentContext := ausf_context.GetAusfUeContext(currentSupi)
+	if ausfCurrentContext == nil {
+		logger.EapAuthComfirmLog.Infoln("SUPI context removed concurrently, confirmation failed")
+		return nil, utils.ProblemDetailsUserNotFound()
+	}
 	servingNetworkName := ausfCurrentContext.ServingNetworkName
 	var eapPayload []byte
 	if eapPayloadTmp, err := base64.StdEncoding.DecodeString(updateEapSession.GetEapPayload()); err != nil {
@@ -494,8 +529,6 @@ func EapAuthComfirmRequestProcedure(updateEapSession models.EapSession, eapSessi
 	}
 	switch ausfCurrentContext.AuthStatus {
 	case models.AUTHRESULT_AUTHENTICATION_ONGOING:
-		responseBody.SetKSeaf(ausfCurrentContext.Kseaf)
-		responseBody.SetSupi(currentSupi)
 		Kautn := ausfCurrentContext.K_aut
 		XRES := ausfCurrentContext.XRES
 		RES, decodeOK := decodeResMac(eapContent.TypeData, eapPayload, Kautn)
@@ -509,6 +542,9 @@ func EapAuthComfirmRequestProcedure(updateEapSession models.EapSession, eapSessi
 		} else if XRES == string(RES) { // decodeOK && XRES == res, auth success
 			logger.EapAuthComfirmLog.Infoln("correct RES value, EAP-AKA' auth succeed")
 			responseBody.SetAuthResult(models.AUTHRESULT_AUTHENTICATION_SUCCESS)
+			// The anchor key and SUPI are released only together with EAP Success (TS 33.501 6.1.3.1).
+			responseBody.SetKSeaf(ausfCurrentContext.Kseaf)
+			responseBody.SetSupi(currentSupi)
 			eapSuccPkt := ConstructEapNoTypePkt(EapCodeForSuccess, eapContent.Identifier)
 			responseBody.SetEapPayload(eapSuccPkt)
 			udmUrl := ausfCurrentContext.UdmUeauUrl
