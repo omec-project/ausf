@@ -7,11 +7,11 @@ package producer
 import (
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"net/http"
-	"strings"
 
 	ausf_context "github.com/omec-project/ausf/context"
 	"github.com/omec-project/ausf/logger"
@@ -318,7 +318,7 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 			return nil, "", utils.ProblemDetailsWithCause("AV generation problem", http.StatusInternalServerError, "", AV_GENERATION_PROBLEM_ERROR)
 		}
 
-		identity := ueid
+		identity := eapAkaIdentityFromSupi(ueid)
 		ikPrime := authInfoResult.AuthenticationVector.AvEapAkaPrime.GetIkPrime()
 		ckPrime := authInfoResult.AuthenticationVector.AvEapAkaPrime.GetCkPrime()
 		RAND := authInfoResult.AuthenticationVector.AvEapAkaPrime.GetRand()
@@ -328,10 +328,15 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 
 		ausfUeContext.Rand = authInfoResult.AuthenticationVector.AvEapAkaPrime.GetRand()
 
-		K_encr, K_aut, K_re, MSK, EMSK := eapAkaPrimePrf(ikPrime, ckPrime, identity)
+		K_encr, K_aut, K_re, MSK, EMSK, err := eapAkaPrimePrf(ikPrime, ckPrime, identity)
+		if err != nil {
+			logger.UeAuthPostLog.Warnf("EAP-AKA' key derivation failed: %+v", err)
+			return nil, "", utils.ProblemDetailsWithCause("AV generation problem", http.StatusInternalServerError, "Invalid IK'/CK' from UDM", AV_GENERATION_PROBLEM_ERROR)
+		}
 		_, _, _, _, _ = K_encr, K_aut, K_re, MSK, EMSK
 		ausfUeContext.K_aut = K_aut
-		Kausf := EMSK[0:32]
+		// Kausf is the first 256 bits of the EMSK (TS 33.501 Annex F.1); EMSK holds raw bytes and Kausf is stored hex encoded
+		Kausf := hex.EncodeToString([]byte(EMSK[0:32]))
 		ausfUeContext.Kausf = Kausf
 		ausfDecode, err := hex.DecodeString(Kausf)
 		if err != nil {
@@ -381,7 +386,9 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 			atMAC = atMACTmp
 		}
 
-		dataArrayBeforeMAC := atRand + atAutn + atMAC + atKdf + atKdfInput
+		// AKA-Challenge subtype followed by two reserved bytes precede the attributes (RFC 4187 section 8.1)
+		eapAkaHeader := string([]byte{eapAkaSubtypeChallenge, 0, 0})
+		dataArrayBeforeMAC := eapAkaHeader + atRand + atAutn + atMAC + atKdf + atKdfInput
 		eapPkt.TypeData = []byte(dataArrayBeforeMAC)
 		encodedPktBeforeMAC := eapPkt.Encode()
 
@@ -396,7 +403,7 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 		wholeAtMAC := append(atMACfirstRow, MACvalue...)
 
 		atMAC = string(wholeAtMAC)
-		dataArrayAfterMAC := atRand + atAutn + atMAC + atKdf + atKdfInput
+		dataArrayAfterMAC := eapAkaHeader + atRand + atAutn + atMAC + atKdf + atKdfInput
 
 		eapPkt.TypeData = []byte(dataArrayAfterMAC)
 		encodedPktAfterMAC := eapPkt.Encode()
@@ -459,7 +466,7 @@ func Auth5gAkaComfirmRequestProcedure(updateConfirmationData models.Confirmation
 
 	// Compare the received RES* with the stored XRES*
 	logger.Auth5gAkaComfirmLog.Infof("res*: %s, Xres*: %s", updateConfirmationData.GetResStar(), ausfCurrentContext.XresStar)
-	if strings.Compare(updateConfirmationData.GetResStar(), ausfCurrentContext.XresStar) == 0 {
+	if subtle.ConstantTimeCompare([]byte(updateConfirmationData.GetResStar()), []byte(ausfCurrentContext.XresStar)) == 1 {
 		ausfCurrentContext.AuthStatus = models.AUTHRESULT_AUTHENTICATION_SUCCESS
 		responseBody.SetAuthResult(models.AUTHRESULT_AUTHENTICATION_SUCCESS)
 		success = true
@@ -531,7 +538,13 @@ func EapAuthComfirmRequestProcedure(updateEapSession models.EapSession, eapSessi
 	case models.AUTHRESULT_AUTHENTICATION_ONGOING:
 		Kautn := ausfCurrentContext.K_aut
 		XRES := ausfCurrentContext.XRES
-		RES, decodeOK := decodeResMac(eapContent.TypeData, eapPayload, Kautn)
+		// the method header and attributes are only meaningful for an EAP-AKA' packet (RFC 5448 section 6.1)
+		RES, decodeOK := []byte(nil), false
+		if eapContent.Type == EapTypeEapAkaPrime {
+			RES, decodeOK = decodeResMac(eapContent.TypeData, eapPayload, Kautn)
+		} else {
+			logger.EapAuthComfirmLog.Infof("unexpected EAP Type %d in confirmation", eapContent.Type)
+		}
 		if !decodeOK {
 			ausfCurrentContext.AuthStatus = models.AUTHRESULT_AUTHENTICATION_FAILURE
 			responseBody.SetAuthResult(models.AUTHRESULT_AUTHENTICATION_ONGOING)
@@ -539,7 +552,7 @@ func EapAuthComfirmRequestProcedure(updateEapSession models.EapSession, eapSessi
 				"eap packet decode error", ausfCurrentContext.UdmUeauUrl)
 			failEapAkaNoti := ConstructFailEapAkaNotification(eapContent.Identifier)
 			responseBody.SetEapPayload(failEapAkaNoti)
-		} else if XRES == string(RES) { // decodeOK && XRES == res, auth success
+		} else if resMatchesXres(XRES, RES) { // decodeOK && XRES == RES, auth success
 			logger.EapAuthComfirmLog.Infoln("correct RES value, EAP-AKA' auth succeed")
 			responseBody.SetAuthResult(models.AUTHRESULT_AUTHENTICATION_SUCCESS)
 			// The anchor key and SUPI are released only together with EAP Success (TS 33.501 6.1.3.1).
