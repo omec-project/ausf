@@ -71,10 +71,14 @@ const (
 	AT_KDF_ATTRIBUTE          = 24
 )
 
+// servingNetworkNamePattern is the ServingNetworkName pattern of TS 29.503 (Nudm_UEAU), fully anchored:
+// "5G:mnc<3 digits>.mcc<3 digits>.3gppnetwork.org" with an optional ":<11 hex digits>" NPN suffix, or "5G:NSWO".
+const servingNetworkNamePattern = `^(5G:mnc[0-9]{3}[.]mcc[0-9]{3}[.]3gppnetwork[.]org(:[A-F0-9]{11})?|5G:NSWO)$`
+
 var ausfContext AUSFContext
 
 func Init() {
-	if snRegex, err := regexp.Compile("5G:mnc[0-9]{3}[.]mcc[0-9]{3}[.]3gppnetwork[.]org"); err != nil {
+	if snRegex, err := regexp.Compile(servingNetworkNamePattern); err != nil {
 		logger.ContextLog.Warnf("SN compile error: %+v", err)
 	} else {
 		ausfContext.snRegex = snRegex
@@ -102,8 +106,8 @@ func CheckIfAusfUeContextExists(ref string) bool {
 }
 
 func GetAusfUeContext(ref string) *AusfUeContext {
-	context, _ := ausfContext.UePool.Load(ref)
-	ausfUeContext := context.(*AusfUeContext)
+	value, _ := ausfContext.UePool.Load(ref)
+	ausfUeContext, _ := value.(*AusfUeContext)
 	return ausfUeContext
 }
 
@@ -148,17 +152,19 @@ func CheckIfSuciSupiPairExists(ref string) bool {
 
 func GetSupiFromSuciSupiMap(ref string) (supi string) {
 	val, _ := ausfContext.suciSupiMap.Load(ref)
-	suciSupiMap := val.(*SuciSupiMap)
-	supi = suciSupiMap.Supi
-	return supi
+	suciSupiMap, ok := val.(*SuciSupiMap)
+	if !ok || suciSupiMap == nil {
+		return ""
+	}
+	return suciSupiMap.Supi
 }
 
 func IsServingNetworkAuthorized(lookup string) bool {
-	if ausfContext.snRegex.MatchString(lookup) {
-		return true
-	} else {
+	// fail closed if the pattern failed to compile in Init
+	if ausfContext.snRegex == nil {
 		return false
 	}
+	return ausfContext.snRegex.MatchString(lookup)
 }
 
 func GetSelf() *AUSFContext {
