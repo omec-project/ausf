@@ -35,6 +35,8 @@ const (
 	nfTypeUDM           = "UDM"
 	httpStatus200OK     = "200 OK"
 	nfEventDeregistered = "NF_DEREGISTERED"
+	svcKey1             = "svc1"
+	udmURLNode1         = "https://10.0.0.1:8090"
 )
 
 var (
@@ -208,6 +210,157 @@ func TestGetUDMUri_SkipsInstancesWithoutUsableEndpoints(t *testing.T) {
 	ausfContext.GetSelf().UdmUeauUrl = ""
 	if got := producer.GetUdmUrl(ausfContext.GetSelf().NrfUri); got != udmURI2 {
 		t.Fatalf("unexpected UDM URL: got %q want %q", got, udmURI2)
+	}
+}
+
+func newUdmService(name models.ServiceName, ipv4 string) models.NFService {
+	svc := models.NFService{
+		ServiceName: name,
+		Scheme:      models.URISCHEME_HTTPS,
+	}
+	if ipv4 != "" {
+		svc.IpEndPoints = []models.IpEndPoint{{
+			Ipv4Address: new(ipv4),
+			Port:        new(int32(8090)),
+		}}
+	}
+	return svc
+}
+
+func TestGetUDMUri_NfServiceList(t *testing.T) {
+	origNRFCacheSearchNFInstances := consumer.NRFCacheSearchNFInstances
+	origSendNfDiscoveryToNrf := consumer.SendNfDiscoveryToNrf
+	origEnableNrfCaching := ausfContext.GetSelf().EnableNrfCaching
+	defer func() {
+		consumer.NRFCacheSearchNFInstances = origNRFCacheSearchNFInstances
+		consumer.SendNfDiscoveryToNrf = origSendNfDiscoveryToNrf
+		ausfContext.GetSelf().EnableNrfCaching = origEnableNrfCaching
+		ausfContext.GetSelf().UdmUeauUrl = ""
+	}()
+
+	const defaultURL = "https://localhost:29503"
+	cases := []struct {
+		name     string
+		profiles []models.NFProfileDiscovery
+		want     string
+	}{
+		{
+			name: "map-only profile",
+			profiles: []models.NFProfileDiscovery{{
+				NfInstanceId: "map-only",
+				NfType:       models.NFTYPE_UDM,
+				NfStatus:     models.NFSTATUS_REGISTERED,
+				NfServiceList: &map[string]models.NFService{
+					svcKey1: newUdmService(models.SERVICENAME_NUDM_UEAU, "10.0.0.1"),
+				},
+			}},
+			want: udmURLNode1,
+		},
+		{
+			name: "legacy nfServices take precedence over nfServiceList",
+			profiles: []models.NFProfileDiscovery{{
+				NfInstanceId: "mixed",
+				NfType:       models.NFTYPE_UDM,
+				NfStatus:     models.NFSTATUS_REGISTERED,
+				NfServices:   []models.NFService{newUdmService(models.SERVICENAME_NUDM_UEAU, "10.0.0.2")},
+				NfServiceList: &map[string]models.NFService{
+					svcKey1: newUdmService(models.SERVICENAME_NUDM_UEAU, "10.0.0.1"),
+				},
+			}},
+			want: "https://10.0.0.2:8090",
+		},
+		{
+			name: "nfServiceList used when legacy entry has no usable endpoint",
+			profiles: []models.NFProfileDiscovery{{
+				NfInstanceId: "mixed-fallthrough",
+				NfType:       models.NFTYPE_UDM,
+				NfStatus:     models.NFSTATUS_REGISTERED,
+				NfServices:   []models.NFService{newUdmService(models.SERVICENAME_NUDM_UEAU, "")},
+				NfServiceList: &map[string]models.NFService{
+					svcKey1: newUdmService(models.SERVICENAME_NUDM_UEAU, "10.0.0.1"),
+				},
+			}},
+			want: udmURLNode1,
+		},
+		{
+			name: "non-UEAU services in nfServiceList are ignored",
+			profiles: []models.NFProfileDiscovery{{
+				NfInstanceId: "filtered",
+				NfType:       models.NFTYPE_UDM,
+				NfStatus:     models.NFSTATUS_REGISTERED,
+				NfServiceList: &map[string]models.NFService{
+					"a": newUdmService(models.SERVICENAME_NUDM_SDM, "10.0.0.9"),
+					"b": newUdmService(models.SERVICENAME_NUDM_UEAU, "10.0.0.2"),
+				},
+			}},
+			want: "https://10.0.0.2:8090",
+		},
+		{
+			name: "only non-UEAU services falls back to default URL",
+			profiles: []models.NFProfileDiscovery{{
+				NfInstanceId: "no-ueau",
+				NfType:       models.NFTYPE_UDM,
+				NfStatus:     models.NFSTATUS_REGISTERED,
+				NfServiceList: &map[string]models.NFService{
+					"a": newUdmService(models.SERVICENAME_NUDM_SDM, "10.0.0.9"),
+				},
+			}},
+			want: defaultURL,
+		},
+		{
+			name: "multiple nfServiceList entries are selected in key order",
+			profiles: []models.NFProfileDiscovery{{
+				NfInstanceId: "multi",
+				NfType:       models.NFTYPE_UDM,
+				NfStatus:     models.NFSTATUS_REGISTERED,
+				NfServiceList: &map[string]models.NFService{
+					"c": newUdmService(models.SERVICENAME_NUDM_UEAU, "10.0.0.3"),
+					"a": newUdmService(models.SERVICENAME_NUDM_UEAU, "10.0.0.1"),
+					"b": newUdmService(models.SERVICENAME_NUDM_UEAU, "10.0.0.2"),
+				},
+			}},
+			want: udmURLNode1,
+		},
+	}
+
+	paths := []struct {
+		name          string
+		cachingEnable bool
+	}{
+		{"cached discovery", true},
+		{"direct discovery", false},
+	}
+
+	for _, tc := range cases {
+		for _, path := range paths {
+			t.Run(tc.name+"/"+path.name, func(t *testing.T) {
+				result := models.NewSearchResult(int32(len(tc.profiles)), tc.profiles)
+				cacheCalls, directCalls := 0, 0
+				consumer.NRFCacheSearchNFInstances = func(ctx context.Context, nrfUri string, targetNfType, requestNfType models.NFType, param Nnrf_NFDiscovery.ApiSearchNFInstancesRequest) (*models.SearchResult, error) {
+					cacheCalls++
+					return result, nil
+				}
+				consumer.SendNfDiscoveryToNrf = func(ctx context.Context, nrfUri string, targetNfType, requestNfType models.NFType, configure consumer.SearchNFInstancesRequestConfigurer) (*models.SearchResult, error) {
+					directCalls++
+					return result, nil
+				}
+				ausfContext.GetSelf().EnableNrfCaching = path.cachingEnable
+
+				// Repeat to catch nondeterministic map iteration.
+				for i := range 20 {
+					ausfContext.GetSelf().UdmUeauUrl = ""
+					if got := producer.GetUdmUrl(ausfContext.GetSelf().NrfUri); got != tc.want {
+						t.Fatalf("iteration %d: UDM URL = %q, want %q", i, got, tc.want)
+					}
+				}
+				if path.cachingEnable && (cacheCalls == 0 || directCalls != 0) {
+					t.Errorf("expected cached path only: cache calls = %d, direct calls = %d", cacheCalls, directCalls)
+				}
+				if !path.cachingEnable && (directCalls == 0 || cacheCalls != 0) {
+					t.Errorf("expected direct path only: cache calls = %d, direct calls = %d", cacheCalls, directCalls)
+				}
+			})
+		}
 	}
 }
 

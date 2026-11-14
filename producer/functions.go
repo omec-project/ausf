@@ -16,6 +16,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -418,7 +419,7 @@ func GetUdmUrl(nrfUri string) string {
 	}
 	if res != nil && len(res.NfInstances) > 0 {
 		for _, udmInstance := range res.NfInstances {
-			for _, ueauService := range udmInstance.NfServices {
+			for _, ueauService := range discoveredNfServices(udmInstance) {
 				if ueauService.GetServiceName() != models.SERVICENAME_NUDM_UEAU {
 					continue
 				}
@@ -528,4 +529,21 @@ func logConfirmFailureAndInformUDM(id string, authType models.AuthType, servingN
 			logger.EapAuthComfirmLog.Infoln(sendErr.Error())
 		}
 	}
+}
+
+// discoveredNfServices returns the services of a discovered profile, merging the
+// deprecated nfServices array with its Rel-16 replacement nfServiceList. Entries from
+// nfServiceList are ordered by key so the selected endpoint is deterministic.
+func discoveredNfServices(profile models.NFProfileDiscovery) []models.NFService {
+	services := append([]models.NFService{}, profile.GetNfServices()...)
+	nfServiceList := profile.GetNfServiceList()
+	keys := make([]string, 0, len(nfServiceList))
+	for key := range nfServiceList {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		services = append(services, nfServiceList[key])
+	}
+	return services
 }
