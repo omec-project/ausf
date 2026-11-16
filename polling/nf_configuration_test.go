@@ -77,6 +77,9 @@ func TestPolling_EmptyInitialConfigIsNotDelivered(t *testing.T) {
 	for polls.Load() < 3 && time.Now().Before(deadline) {
 		time.Sleep(2 * time.Millisecond)
 	}
+	if got := polls.Load(); got < 3 {
+		t.Fatalf("the poller made %d requests, want at least 3: the empty first config was never put to the test", got)
+	}
 	select {
 	case got := <-ch:
 		t.Errorf("empty config delivered before any PLMN was configured: %+v", got)

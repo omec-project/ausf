@@ -10,6 +10,7 @@ package nfregistration
 
 import (
 	"context"
+	"time"
 
 	"github.com/omec-project/ausf/consumer"
 	"github.com/omec-project/ausf/logger"
@@ -25,14 +26,14 @@ func newService() *nrfregistration.Service[[]models.PlmnId] {
 		NfName:  "AUSF",
 		Log:     logger.NrfRegistrationLog,
 		IsEmpty: func(plmnConfig []models.PlmnId) bool { return len(plmnConfig) == 0 },
-		Register: func(_ context.Context, plmnConfig []models.PlmnId) (*models.NFProfile, error) {
-			nfProfile, _, err := consumer.SendRegisterNFInstance(plmnConfig)
+		Register: func(ctx context.Context, plmnConfig []models.PlmnId) (*models.NFProfile, error) {
+			nfProfile, _, err := consumer.SendRegisterNFInstance(ctx, plmnConfig)
 			return nfProfile, err
 		},
 		Update: func(ctx context.Context, patch []models.PatchItem) (*models.NFProfile, *models.ProblemDetails, error) {
 			return consumer.SendUpdateNFInstance(ctx, patch)
 		},
-		Deregister: func(context.Context) error { return consumer.SendDeregisterNFInstance() },
+		Deregister: func(ctx context.Context) error { return consumer.SendDeregisterNFInstance(ctx) },
 	})
 	if err != nil {
 		panic(err) // the config above is static, so this is a programming error
@@ -47,7 +48,13 @@ func StartNfRegistrationService(ctx context.Context, plmnConfigChan <-chan []mod
 	service.Start(ctx, plmnConfigChan)
 }
 
+// deregisterTimeout bounds DeregisterNF: it waits for the registration work in progress, which it cancels, and
+// then sends the DELETE, and an NRF that does not answer must not hold up the termination of the NF.
+var deregisterTimeout = 10 * time.Second
+
 // DeregisterNF stops the heartbeat and deregisters the NF from the NRF.
 var DeregisterNF = func() {
-	service.Deregister(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), deregisterTimeout)
+	defer cancel()
+	service.Deregister(ctx)
 }

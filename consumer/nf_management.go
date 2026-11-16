@@ -44,14 +44,17 @@ func getNfProfile(ausfContext *ausfContext.AUSFContext, plmnConfig []models.Plmn
 	return profile, err
 }
 
-var SendRegisterNFInstance = func(plmnConfig []models.PlmnId) (prof *models.NFProfile, resourceNrfUri string, err error) {
+// SendRegisterNFInstance and SendDeregisterNFInstance take the context of the registration service, which holds
+// its registration mutex while they run and cancels the context to end them when a new configuration arrives or
+// the NF terminates.
+var SendRegisterNFInstance = func(ctx context.Context, plmnConfig []models.PlmnId) (prof *models.NFProfile, resourceNrfUri string, err error) {
 	self := ausfContext.GetSelf()
 	nfProfile, err := getNfProfile(self, plmnConfig)
 	if err != nil {
 		return models.NewNFProfileWithDefaults(), "", err
 	}
 
-	result, err := newNrfClient(self.NrfUri).Register(context.TODO(), nfProfile)
+	result, err := newNrfClient(self.NrfUri).Register(ctx, nfProfile)
 	if err != nil {
 		return models.NewNFProfileWithDefaults(), "", err
 	}
@@ -66,11 +69,11 @@ var SendRegisterNFInstance = func(plmnConfig []models.PlmnId) (prof *models.NFPr
 	return result.Profile, result.NrfURI, nil
 }
 
-var SendDeregisterNFInstance = func() error {
+var SendDeregisterNFInstance = func(ctx context.Context) error {
 	logger.ConsumerLog.Infoln("send Deregister NFInstance")
 
 	ausfSelf := ausfContext.GetSelf()
-	return newNrfClient(ausfSelf.NrfUri).Deregister(context.Background(), ausfSelf.NfId)
+	return newNrfClient(ausfSelf.NrfUri).Deregister(ctx, ausfSelf.NfId)
 }
 
 var SendUpdateNFInstance = func(ctx context.Context, patchItem []models.PatchItem) (receivedNfProfile *models.NFProfile, problemDetails *models.ProblemDetails, err error) {
