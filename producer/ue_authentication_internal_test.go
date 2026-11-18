@@ -124,6 +124,70 @@ func TestUeAuthPostRequestProcedure_InvalidKausfDoesNotPersistContext(t *testing
 	}
 }
 
+// authBase is the resource URI of the authentication context created for supiOrSuci.
+func authBase(supiOrSuci string) string {
+	return ausf_context.GetSelf().Url + "/nausf-auth/v1/ue-authentications/" + supiOrSuci
+}
+
+// assertOnlyAuthLink checks that _links holds exactly one member, wantName (TS 29.509 clause 6.1.6.2.3), with
+// the expected href, and in particular that the legacy "link" member is absent.
+func assertOnlyAuthLink(t *testing.T, response *models.UEAuthenticationCtx, wantName, wantHref string) {
+	t.Helper()
+	links := response.GetLinks()
+	if _, found := links["link"]; found {
+		t.Errorf("legacy \"link\" member present in _links: %+v", links)
+	}
+	if len(links) != 1 {
+		t.Fatalf("_links has %d members, want only %q: %+v", len(links), wantName, links)
+	}
+	value, found := links[wantName]
+	if !found || value.Link == nil {
+		t.Fatalf("_links member %q missing: %+v", wantName, links)
+	}
+	if got := value.Link.GetHref(); got != wantHref {
+		t.Errorf("_links[%q] href = %q, want %q", wantName, got, wantHref)
+	}
+}
+
+func TestUeAuthPostRequestProcedure_5gAkaLinksOnlyContainSpecMember(t *testing.T) {
+	initProducerTestContext(t)
+	originalResolveUdmURL := resolveUdmURL
+	originalExecuteGenerateAuthData := executeGenerateAuthData
+	defer func() {
+		resolveUdmURL = originalResolveUdmURL
+		executeGenerateAuthData = originalExecuteGenerateAuthData
+	}()
+
+	const (
+		supiOrSuci = "imsi-001010000000006"
+		supi       = "imsi-001010000000007"
+	)
+	resolveUdmURL = func(string) string { return testUdmUrl }
+	executeGenerateAuthData = func(_ *Nudm_UEAU.APIClient, _ string, _ models.AuthenticationInfoRequest) (*models.AuthenticationInfoResult, *http.Response, error) {
+		result := models.NewAuthenticationInfoResult(models.AUTHTYPE__5_G_AKA)
+		result.SetSupi(supi)
+		result.SetAuthenticationVector(models.Av5GHeAkaAsAuthenticationVector(models.NewAv5GHeAka(
+			models.AVTYPE__5_G_HE_AKA,
+			"00112233445566778899aabbccddeeff",
+			"00112233445566778899aabbccddeeff",
+			"00112233445566778899aabbccddeeff",
+			"00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
+		)))
+		return result, nil, nil
+	}
+	defer ausf_context.RemoveSuciSupiPairFromMap(supiOrSuci)
+	defer ausf_context.RemoveAusfUeContextFromPool(supi)
+
+	response, _, problemDetails := UeAuthPostRequestProcedure(models.AuthenticationInfo{
+		ServingNetworkName: testServingNetwork,
+		SupiOrSuci:         supiOrSuci,
+	})
+	if problemDetails != nil || response == nil {
+		t.Fatalf("unexpected result: response=%v problem=%+v", response, problemDetails)
+	}
+	assertOnlyAuthLink(t, response, "5g-aka", authBase(supiOrSuci)+"/5g-aka-confirmation")
+}
+
 func TestDeleteAuthenticationResultProcedureRemovesLocalState(t *testing.T) {
 	initProducerTestContext(t)
 	originalExecuteDeleteAuth := executeDeleteAuth
@@ -390,6 +454,8 @@ func TestUeAuthPostRequestProcedure_EapAkaPrimeChallengeFramingAndMac(t *testing
 	if !bytes.Equal(got, wantOrder) {
 		t.Fatalf("attribute order = %v, want %v", got, wantOrder)
 	}
+
+	assertOnlyAuthLink(t, response, "eap-session", authBase(supiOrSuci)+"/eap-session")
 
 	ueCtx := ausf_context.GetAusfUeContext(supi)
 	if ueCtx == nil {
