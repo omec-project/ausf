@@ -26,8 +26,6 @@ const (
 	UPSTREAM_SERVER_ERROR                = "UPSTREAM_SERVER_ERROR"
 	SERVING_NETWORK_NOT_AUTHORIZED_ERROR = "SERVING_NETWORK_NOT_AUTHORIZED"
 	AV_GENERATION_PROBLEM_ERROR          = "AV_GENERATION_PROBLEM"
-
-	legacyLinkName = "link"
 )
 
 // Generates a random int between 0 and 255
@@ -425,9 +423,6 @@ func UeAuthPostRequestProcedure(updateAuthenticationInfo models.AuthenticationIn
 	}
 	links := make(map[string]models.LinksValueSchema)
 	links[linkName] = linksValue
-	// "link" is the member name used before the TS 29.509 names were adopted; consumers that still look
-	// it up (e.g. AMFs predating the spec-compliant lookup) keep working
-	links[legacyLinkName] = linksValue
 	responseBody.SetLinks(links)
 	responseBody.SetAuthType(authInfoResult.GetAuthType())
 
